@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>inkpage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --md-primary:#6750A4;--md-on-primary:#FFF;--md-primary-container:#EADDFF;
+  --md-on-primary-container:#21005D;--md-secondary-container:#E8DEF8;
+  --md-on-secondary-container:#1D192B;--md-surface:#FEF7FF;
+  --md-surface-container-lowest:#FFF;--md-surface-container-low:#F7F2FA;
+  --md-surface-container:#F3EDF7;--md-surface-container-high:#ECE6F0;
+  --md-surface-container-highest:#E6E0E9;--md-on-surface:#1D1B20;
+  --md-on-surface-variant:#49454F;--md-outline:#79747E;
+  --md-outline-variant:#CAC4D0;--md-shadow:rgba(0,0,0,0.15);
+  --md-shape-corner-full:9999px;--md-shape-corner-l:16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Roboto',sans-serif;
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+
+#app{display:flex;width:100vw;height:100dvh;overflow:hidden;background:var(--md-surface-container-low)}
+
+#toolbar{position:relative;display:flex;align-items:center;justify-content:center;gap:2px;
+  background:var(--md-surface-container);z-index:95;flex-shrink:0}
+@media(orientation:landscape){
+  #app{flex-direction:row}
+  #toolbar{flex-direction:column;width:72px;height:100%;padding:10px 0;
+    border-right:1px solid var(--md-outline-variant);box-shadow:2px 0 8px var(--md-shadow)}
+}
+@media(orientation:portrait){
+  #app{flex-direction:column}
+  #toolbar{flex-direction:row;width:100%;height:52px;padding:0 8px;
+    border-bottom:1px solid var(--md-outline-variant);box-shadow:0 2px 8px var(--md-shadow)}
+}
+
+.tool-btn{position:relative;display:flex;align-items:center;justify-content:center;
+  width:42px;height:42px;border:none;border-radius:var(--md-shape-corner-full);
+  background:transparent;color:var(--md-on-surface-variant);cursor:pointer;
+  outline:none;overflow:visible;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .2s,color .2s}
+.tool-btn:hover{background:rgba(28,27,32,.08)}
+.tool-btn:active{background:rgba(28,27,32,.12)}
+.tool-btn.active{background:var(--md-secondary-container);color:var(--md-on-secondary-container)}
+.tool-btn .material-symbols-rounded{font-size:22px;line-height:1;pointer-events:none}
+
+.tool-btn::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;
+  border-radius:50%;background:currentColor;opacity:0;pointer-events:none;
+  transform:translate(-50%,-50%);
+  transition:width .45s ease-out,height .45s ease-out,opacity .35s ease-out;
+  clip-path:circle(50% at 50% 50%)}
+.tool-btn.ripple-active::before{opacity:.15}
+.tool-btn.ripple-fade::before{opacity:0;transition:opacity .35s ease-out}
+
+.tool-divider{flex-shrink:0;background:var(--md-outline-variant)}
+@media(orientation:landscape){.tool-divider{width:24px;height:1px;margin:3px 0}}
+@media(orientation:portrait){.tool-divider{width:1px;height:24px;margin:0 3px}}
+
+#color-dot{position:absolute;bottom:2px;right:2px;width:11px;height:11px;
+  border-radius:50%;border:2px solid var(--md-surface-container);background:#1D1B20;
+  transition:background .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+
+#canvas-container{flex:1;position:relative;overflow:hidden;background:#FFF}
+#canvas{display:block;width:100%;height:100%;touch-action:none}
+
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:14px;color:var(--md-outline);pointer-events:none;white-space:nowrap;
+  transition:opacity .4s}
+#hint.hidden{opacity:0}
+
+.cursor-pen{cursor:crosshair}.cursor-eraser{cursor:crosshair}
+.cursor-pan{cursor:grab}.cursor-panning{cursor:grabbing}
+
+.popup-overlay{position:fixed;inset:0;z-index:90;display:none}
+.popup-overlay.show{display:block}
+.popup-card{position:fixed;z-index:100;background:var(--md-surface-container-high);
+  border-radius:var(--md-shape-corner-l);padding:16px;
+  box-shadow:0 6px 24px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.1);
+  display:none;animation:popupIn .2s cubic-bezier(.2,0,0,1)}
+.popup-card.show{display:block}
+@keyframes popupIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+#color-picker{grid-template-columns:repeat(4,36px);gap:8px;justify-content:start}
+#color-picker.show{display:grid}
+.color-swatch{width:36px;height:36px;border-radius:50%;border:none;outline:none;
+  cursor:pointer;transition:transform .15s,box-shadow .2s;
+  -webkit-tap-highlight-color:transparent}
+.color-swatch:hover{transform:scale(1.15)}
+.color-swatch.selected{box-shadow:0 0 0 2.5px var(--md-surface-container-high),0 0 0 4.5px var(--md-primary)}
+.color-swatch.selected:hover{transform:scale(1.05)}
+.color-custom-row{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px;
+  padding-top:10px;border-top:1px solid var(--md-outline-variant)}
+.color-custom-row label{font-size:12px;color:var(--md-on-surface-variant);cursor:default}
+#custom-color-input{width:32px;height:32px;border:none;border-radius:50%;
+  cursor:pointer;background:none;padding:0;overflow:hidden}
+#custom-color-input::-webkit-color-swatch-wrapper{padding:0}
+#custom-color-input::-webkit-color-swatch{border:none;border-radius:50%}
+
+.cap-toggle-btn{padding:4px 16px;border-radius:var(--md-shape-corner-full);
+  border:1px solid var(--md-outline-variant);background:var(--md-surface-container-low);
+  color:var(--md-on-surface);font-size:12px;cursor:pointer;font-family:inherit;
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:background .15s,border-color .15s}
+.cap-toggle-btn:hover{background:rgba(28,27,32,.08)}
+.cap-toggle-btn:active{background:rgba(28,27,32,.12)}
+
+#tuning-panel{width:280px;max-height:80vh;overflow-y:auto;overscroll-behavior:contain}
+#tuning-panel::-webkit-scrollbar{width:4px}
+#tuning-panel::-webkit-scrollbar-thumb{background:var(--md-outline-variant);border-radius:2px}
+.settings-section{margin-bottom:14px}
+.settings-section-title{font-size:11px;font-weight:500;color:var(--md-on-surface-variant);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.settings-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.settings-row label{font-size:12px;color:var(--md-on-surface-variant);flex:1;min-width:0;white-space:nowrap}
+.settings-row input[type=range]{flex:2;min-width:0;height:4px;
+  -webkit-appearance:none;appearance:none;background:var(--md-outline-variant);
+  border-radius:2px;outline:none}
+.settings-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;background:var(--md-primary);cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.settings-row .val{font-size:12px;font-weight:500;color:var(--md-on-surface);
+  min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+#project-menu{width:200px;padding:8px 0}
+.file-menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;
+  border:none;border-radius:var(--md-shape-corner-l);background:transparent;
+  color:var(--md-on-surface);font-size:14px;cursor:pointer;text-align:left;
+  font-family:inherit;transition:background .15s}
+.file-menu-item:hover{background:rgba(28,27,32,.08)}
+.file-menu-item .material-symbols-rounded{font-size:20px;color:var(--md-on-surface-variant)}
+
+#zoom-indicator{position:absolute;bottom:16px;right:16px;
+  background:var(--md-surface-container-high);color:var(--md-on-surface-variant);
+  font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--md-shape-corner-full);
+  box-shadow:0 2px 8px var(--md-shadow);pointer-events:none;opacity:0;
+  transition:opacity .3s;z-index:40}
+#zoom-indicator.show{opacity:1}
+
+#toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  background:var(--md-on-surface);color:var(--md-surface-container-lowest);
+  font-size:12px;font-weight:500;padding:6px 14px;border-radius:var(--md-shape-corner-full);
+  box-shadow:0 2px 8px var(--md-shadow);pointer-events:none;opacity:0;
+  transition:opacity .3s;z-index:40;white-space:nowrap}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="toolbar" role="toolbar">
+    <button class="tool-btn active" id="pen-btn"><span class="material-symbols-rounded">edit</span></button>
+    <button class="tool-btn" id="eraser-btn"><span class="material-symbols-rounded">ink_eraser</span></button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" id="color-btn">
+      <span class="material-symbols-rounded">palette</span><div id="color-dot"></div>
+    </button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" id="touch-btn">
+      <span class="material-symbols-rounded">touch_app</span>
+    </button>
+    <button class="tool-btn" id="pressure-btn">
+      <span class="material-symbols-rounded">gesture</span>
+    </button>
+    <button class="tool-btn" id="zoom-lock-btn">
+      <span class="material-symbols-rounded">center_focus_strong</span>
+    </button>
+    <div class="tool-divider"></div>
+    <button class="tool-btn" id="reset-btn"><span class="material-symbols-rounded">delete_sweep</span></button>
+    <button class="tool-btn" id="project-btn"><span class="material-symbols-rounded">folder_special</span></button>
+    <button class="tool-btn" id="tuning-btn"><span class="material-symbols-rounded">tune</span></button>
+  </nav>
+  <main id="canvas-container">
+    <canvas id="canvas"></canvas>
+    <div id="hint"></div>
+    <div id="zoom-indicator">100%</div>
+    <div id="toast"></div>
+  </main>
+</div>
+
+<div id="color-picker-overlay" class="popup-overlay"></div>
+<div id="color-picker" class="popup-card"></div>
+<div id="tuning-overlay" class="popup-overlay"></div>
+<div id="tuning-panel" class="popup-card"></div>
+<div id="project-overlay" class="popup-overlay"></div>
+<div id="project-menu" class="popup-card"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   inkpage — Vector Stroke Engine
+
+   Five-stage vector stroke rendering pipeline:
+   - Streamline interpolation (EMA path smoothing)
+   - Direction/perpendicular vector computation (central difference)
+   - Pressure-to-radius mapping (easing + low-pass filter)
+   - Outline generation (perpendicular offset + configurable line caps)
+   - Quadratic Bézier path rendering via Path2D
+
+   Input: getCoalescedEvents() for high-fidelity stylus capture
+   Performance: committed-stroke bitmap cache, viewport culling
+   Quality: resolution-independent, deterministic, zero idle cost
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── i18n ──
+const LANG = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+const STRINGS = {
+  zh: {
+    'tool.pen':'画笔 (P)','tool.eraser':'橡皮 (E)','tool.color':'颜色 (C)',
+    'tool.touch':'触摸墨迹 (T)','tool.pressure':'模拟压感 (G)',
+    'tool.zoomLock':'统一缩放','tool.reset':'重置画布',
+    'tool.project':'项目','tool.tuning':'墨迹微调 (S)',
+    'hint':'在此处书写或涂画',
+    'touch.on':'触摸墨迹已开启','touch.off':'触摸墨迹已关闭',
+    'pressure.on':'模拟压感已开启','pressure.off':'模拟压感已关闭',
+    'toast.erased':'已擦除 {n} 条笔画',
+    'toast.saved':'项目已保存','toast.loaded':'项目已加载 ({n} 条笔画)',
+    'toast.load.error':'读取失败: 文件格式错误',
+    'toast.exported':'图片已导出','toast.cleared':'画布已清空',
+    'toast.zoomLock.on':'缩放已锁定','toast.zoomLock.off':'缩放已解锁',
+    'confirm.reset':'重置画布将清除所有内容, 确定吗?',
+    'file.save':'保存项目','file.load':'读取项目',
+    'file.export':'导出图片',
+    'color.custom':'自定义颜色',
+    'set.shape':'笔触形状','set.cap':'笔锋样式','set.smooth':'平滑参数',
+    'set.size':'笔触大小','set.thinning':'压力细化',
+    'set.lineCap':'笔锋形状',
+    'set.streamline':'路径平滑','set.smoothing':'边缘柔化',
+    'cap.round':'圆润','cap.pointed':'尖锐',
+  },
+  en: {
+    'tool.pen':'Pen (P)','tool.eraser':'Eraser (E)','tool.color':'Color (C)',
+    'tool.touch':'Touch Ink (T)','tool.pressure':'Simulated Pressure (G)',
+    'tool.zoomLock':'Unified Zoom','tool.reset':'Reset Canvas',
+    'tool.project':'Project','tool.tuning':'Stroke Tuning (S)',
+    'hint':'Write or draw here',
+    'touch.on':'Touch ink enabled','touch.off':'Touch ink disabled',
+    'pressure.on':'Simulated pressure enabled','pressure.off':'Simulated pressure disabled',
+    'toast.erased':'Erased {n} stroke(s)',
+    'toast.saved':'Project saved','toast.loaded':'Project loaded ({n} stroke(s))',
+    'toast.load.error':'Load failed: invalid file format',
+    'toast.exported':'Image exported','toast.cleared':'Canvas cleared',
+    'toast.zoomLock.on':'Zoom locked','toast.zoomLock.off':'Zoom unlocked',
+    'confirm.reset':'Reset canvas will clear all content. Continue?',
+    'file.save':'Save Project','file.load':'Load Project',
+    'file.export':'Export Image',
+    'color.custom':'Custom Color',
+    'set.shape':'Stroke Shape','set.cap':'Tip Style','set.smooth':'Smoothing',
+    'set.size':'Size','set.thinning':'Thinning',
+    'set.lineCap':'Tip Shape',
+    'set.streamline':'Streamline','set.smoothing':'Smoothing',
+    'cap.round':'Round','cap.pointed':'Pointed',
+  },
+};
+const t = k => STRINGS[LANG][k] || STRINGS.en[k] || k;
+const tf = (k,v) => (STRINGS[LANG][k]||STRINGS.en[k]||k).replace(/\{(\w+)\}/g,(_,p)=>v[p]);
+
+// ── Config ──
+const CONFIG = {
+  baseSize: 4,
+  thinning: 0.5,
+  streamline: 0.6,
+  smoothing: 0.6,
+  simulatePressure: true,
+  size: 4,
+  lineCap: 'round',
+  eraserSize: 22,
+  minZoom: .15, maxZoom: 6,
+};
+const SAVE_VERSION = 3;
+const COLORS = [
+  '#1D1B20','#4A6B7C','#955050',
+  '#B07848','#4E7A5C','#6E5B7D',
+];
+
+// ── State ──
+const state = {
+  tool:'pen', color:'#1D1B20',
+  zoom:1, panX:0, panY:0,
+  touchDraw:false, pressureMode:'native',
+  zoomLocked:false,
+  drawing:false,
+  pickerOpen:false, tuningOpen:false, projectOpen:false
+};
+
+let strokes = [];
+let currentStroke = null;
+let eraserPoints = [];
+let pendingErasure = new Set();
+let nextStrokeId = 1;
+let pinching=false, lastPinchDist=0, lastPinchCenter={x:0,y:0};
+let isPanning=false, panStartX=0, panStartY=0, panStartPanX=0, panStartPanY=0;
+let spaceHeld=false, renderRequested=false, hasDrawn=false, activePointerId=null;
+
+// ── DOM ──
+const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d');
+const container=document.getElementById('canvas-container');
+const hint=document.getElementById('hint'), zoomInd=document.getElementById('zoom-indicator');
+const toastEl=document.getElementById('toast');
+const penBtn=document.getElementById('pen-btn'), eraserBtn=document.getElementById('eraser-btn');
+const colorBtn=document.getElementById('color-btn'), touchBtn=document.getElementById('touch-btn');
+const pressureBtn=document.getElementById('pressure-btn');
+const zoomLockBtn=document.getElementById('zoom-lock-btn'), resetBtn=document.getElementById('reset-btn');
+const projectBtn=document.getElementById('project-btn'), tuningBtn=document.getElementById('tuning-btn');
+const colorDot=document.getElementById('color-dot');
+
+// Vector Stroke Algorithm — five-stage freehand rendering pipeline
+
+const PI = Math.PI;
+const RATE_OF_PRESSURE_CHANGE = 0.275;
+
+function getFreehandOptions(cfg, pressureMode) {
+  const sw = cfg.size || cfg.baseSize || 4;
+  return {
+    size: sw,
+    thinning: 0.5,
+    streamline: Math.min(1, 0.64 + (sw - 9) / 7 * 0.10),
+    smoothing: 0.6,
+    simulatePressure: pressureMode === 'simulated',
+    easing: (t) => Math.sin(t * PI / 2),
+  };
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function dist(a, b) {
+  const dx = a[0] - b[0], dy = a[1] - b[1];
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getStrokePoints(input, options) {
+  if (!input || input.length === 0) return [];
+
+  const { streamline, size, last } = options;
+  const t = 0.15 + (1 - streamline) * 0.85;
+
+  const pts = [];
+  for (let i = 0; i < input.length; i++) {
+    const point = input[i];
+    if (i === 0) {
+      pts.push({
+        x: point[0], y: point[1], pressure: point[2] != null ? point[2] : 0.5,
+        distance: 0, length: 0
+      });
+      continue;
+    }
+
+    const prev = pts[i - 1];
+
+    if (last && i === input.length - 1) {
+      const d = dist([prev.x, prev.y], [point[0], point[1]]);
+      pts.push({
+        x: point[0], y: point[1], pressure: point[2] != null ? point[2] : 0.5,
+        distance: d, length: prev.length + d
+      });
+      continue;
+    }
+
+    const sx = lerp(point[0], prev.x, 1 - t);
+    const sy = lerp(point[1], prev.y, 1 - t);
+
+    const d = dist([prev.x, prev.y], [sx, sy]);
+    pts.push({
+      x: sx, y: sy, pressure: point[2] != null ? point[2] : 0.5,
+      distance: d, length: prev.length + d
+    });
+  }
+
+  for (let i = 0; i < pts.length; i++) {
+    const prev = i > 0 ? pts[i - 1] : pts[i];
+    const curr = pts[i];
+    const next = i < pts.length - 1 ? pts[i + 1] : pts[i];
+
+    let dx = next.x - prev.x;
+    let dy = next.y - prev.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    dx /= len;
+    dy /= len;
+
+    curr.vector = { x: dx, y: dy };
+    curr.perpendicular = { x: -dy, y: dx };
+  }
+
+  return pts;
+}
+
+function setStrokePointRadii(points, options) {
+  if (!points || points.length === 0) return;
+
+  const { size, thinning, simulatePressure, easing } = options;
+  const minRadius = size / 2;
+  let prevPressure = points[0].pressure;
+
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+    let pressure = pt.pressure;
+
+    if (simulatePressure) {
+      const speed = pt.distance || 0;
+      const sp = Math.min(1, speed / size);
+      const rp = 1 - sp;
+      pressure = rp;
+    } else {
+      pressure = Math.min(1, pressure * 1.05);
+    }
+
+    pressure = lerp(pressure, prevPressure, RATE_OF_PRESSURE_CHANGE);
+    prevPressure = pressure;
+    pressure = Math.max(0, Math.min(1, pressure));
+
+    const radius = minRadius * easing(0.5 - thinning * (0.5 - pressure));
+    pt.radius = Math.max(0.5, radius);
+  }
+
+  const first = points[0], last = points[points.length - 1];
+  if (first.radius < 1) first.radius = 1;
+  if (last.radius < 1) last.radius = 1;
+}
+
+function getStrokeOutlinePoints(strokePoints, lineCap) {
+  if (!strokePoints || strokePoints.length === 0) return [];
+  const cap = lineCap || 'round';
+
+  if (strokePoints.length === 1) {
+    const pt = strokePoints[0];
+    const r = pt.radius || 2;
+    if (cap === 'pointed') {
+      return [
+        [pt.x - r, pt.y], [pt.x, pt.y - r], [pt.x + r, pt.y], [pt.x, pt.y + r]
+      ];
+    }
+    const pts = [];
+    const N = 12;
+    for (let j = 0; j < N; j++) {
+      const a = j * 2 * PI / N;
+      pts.push([pt.x + r * Math.cos(a), pt.y + r * Math.sin(a)]);
+    }
+    return pts;
+  }
+
+  const left = [];
+  const right = [];
+
+  for (let i = 0; i < strokePoints.length; i++) {
+    const pt = strokePoints[i];
+    const r = pt.radius || 2;
+    const nx = pt.perpendicular ? pt.perpendicular.x : 0;
+    const ny = pt.perpendicular ? pt.perpendicular.y : 1;
+
+    left.push([pt.x + nx * r, pt.y + ny * r]);
+    right.push([pt.x - nx * r, pt.y - ny * r]);
+  }
+
+  const first = strokePoints[0];
+  const last = strokePoints[strokePoints.length - 1];
+
+  if (cap === 'pointed') {
+    if (first.vector) {
+      const tipLen = first.radius || 2;
+      left.unshift([first.x - first.vector.x * tipLen, first.y - first.vector.y * tipLen]);
+      right.unshift([first.x - first.vector.x * tipLen, first.y - first.vector.y * tipLen]);
+    }
+    if (last.vector) {
+      const tipLen = last.radius || 2;
+      left.push([last.x + last.vector.x * tipLen, last.y + last.vector.y * tipLen]);
+      right.push([last.x + last.vector.x * tipLen, last.y + last.vector.y * tipLen]);
+    }
+    return [...left, ...right.reverse()];
+  }
+
+  const ARC_SEGS = 10;
+  const r0 = first.radius || 2;
+  const startAngle = first.perpendicular
+    ? Math.atan2(first.perpendicular.y, first.perpendicular.x) : -PI / 2;
+  const startArc = [];
+  for (let j = 1; j < ARC_SEGS; j++) {
+    const a = startAngle + PI - j * PI / ARC_SEGS;
+    startArc.push([first.x + r0 * Math.cos(a), first.y + r0 * Math.sin(a)]);
+  }
+  const rN = last.radius || 2;
+  const endAngle = last.perpendicular
+    ? Math.atan2(last.perpendicular.y, last.perpendicular.x) : -PI / 2;
+  const endArc = [];
+  for (let j = 1; j < ARC_SEGS; j++) {
+    const a = endAngle - j * PI / ARC_SEGS;
+    endArc.push([last.x + rN * Math.cos(a), last.y + rN * Math.sin(a)]);
+  }
+  return [...left, ...endArc, ...right.reverse(), ...startArc];
+}
+
+function getSvgPathFromStroke(points) {
+  if (!points || !points.length) return '';
+  const len = points.length;
+  if (len < 4) {
+    const cx = (points[0][0] + points[len-1][0]) / 2;
+    const cy = (points[0][1] + points[len-1][1]) / 2;
+    const r = Math.max(1, Math.abs(points[0][0] - points[len-1][0]) / 2);
+    return `M${cx - r},${cy}a${r},${r},0,1,0,${r * 2},0a${r},${r},0,1,0,-${r * 2},0Z`;
+  }
+  let d = `M${points[0][0]},${points[0][1]}`;
+  for (let i = 1; i < len - 2; i++) {
+    const xc = (points[i][0] + points[i+1][0]) / 2;
+    const yc = (points[i][1] + points[i+1][1]) / 2;
+    d += `Q${points[i][0]},${points[i][1]},${xc},${yc}`;
+  }
+  d += `Q${points[len-2][0]},${points[len-2][1]},${points[len-1][0]},${points[len-1][1]}`;
+  return d + 'Z';
+}
+
+function renderSvgPath(ctx, pathStr) {
+  const path = new Path2D(pathStr);
+  ctx.fill(path);
+}
+
+function renderStroke(targetCtx, stroke, vx0, vy0, vx1, vy1) {
+  const pts = stroke.points;
+  if (!pts || pts.length === 0) return;
+
+  if (stroke.bbox) {
+    const m = (stroke.config.size || stroke.config.baseSize || 4) + 2;
+    if (stroke.bbox.maxX+m < vx0 || stroke.bbox.minX-m > vx1 ||
+        stroke.bbox.maxY+m < vy0 || stroke.bbox.minY-m > vy1) return;
+  }
+
+  if (pts.length === 1) {
+    const r = (stroke.config.size || stroke.config.baseSize || 4) / 2;
+    targetCtx.fillStyle = stroke.color;
+    targetCtx.beginPath();
+    targetCtx.arc(pts[0][0], pts[0][1], Math.max(0.5, r), 0, PI * 2);
+    targetCtx.fill();
+    return;
+  }
+
+  const isComplete = stroke.complete === true;
+  const options = getFreehandOptions(stroke.config, stroke.pressureMode);
+
+  const input = pts.map(p => [p[0], p[1], p[2] != null ? p[2] : 0.5]);
+
+  const strokePoints = getStrokePoints(input, {...options, last: isComplete});
+  setStrokePointRadii(strokePoints, options);
+  const outline = getStrokeOutlinePoints(strokePoints, stroke.config.lineCap || 'round');
+
+  if (outline.length < 3) return;
+
+  const path = getSvgPathFromStroke(outline);
+  targetCtx.fillStyle = stroke.color;
+  targetCtx.beginPath();
+  renderSvgPath(targetCtx, path);
+}
+
+// ═══════════════════════════════════════════════════════
+// Stroke Lifecycle
+// ═══════════════════════════════════════════════════════
+const AUTOSAVE_KEY = 'inkpage_autosave';
+function autoSave(){
+  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify({version:SAVE_VERSION,config:{...CONFIG},view:{zoom:state.zoom,panX:state.panX,panY:state.panY,zoomLocked:state.zoomLocked,pressureMode:state.pressureMode,touchDraw:state.touchDraw},color:state.color,strokes:strokes.map(s=>({id:s.id,tool:s.tool,color:s.color,pressureMode:s.pressureMode,isPen:s.isPen,config:s.config,points:s.points,complete:true}))}))}catch(_){}
+}
+function autoLoad(){
+  try{const raw=localStorage.getItem(AUTOSAVE_KEY);if(!raw)return false;const d=JSON.parse(raw);if(!d.strokes||!d.strokes.length)return false;if(d.config)Object.assign(CONFIG,d.config);if(d.view){state.zoom=d.view.zoom;state.panX=d.view.panX;state.panY=d.view.panY;if(d.view.zoomLocked)state.zoomLocked=true;if(d.view.pressureMode)state.pressureMode=d.view.pressureMode;if(d.view.touchDraw)state.touchDraw=true}if(d.color)state.color=d.color;strokes=d.strokes.map(s=>({...s,bbox:null,complete:true}));strokes.forEach(computeBBox);nextStrokeId=strokes.reduce((mx,s)=>Math.max(mx,s.id),0)+1;return true}catch(_){return false}
+}
+
+function commitStroke(stroke) {
+  if (!stroke) return;
+  stroke.complete = true;
+  strokes.push(stroke);
+  currentStroke = null;
+  committedDirty = true;
+  autoSave();
+  scheduleRender();
+}
+
+function cancelStroke() {
+  currentStroke = null;
+  scheduleRender();
+}
+
+// ═══════════════════════════════════════════════════════
+// Stroke Bounding Box
+// ═══════════════════════════════════════════════════════
+function computeBBox(stroke) {
+  let minX=1e9, minY=1e9, maxX=-1e9, maxY=-1e9;
+  const r = (stroke.config.size || stroke.config.baseSize || 4) / 2 + 2;
+  for (const p of stroke.points) {
+    if (p[0]<minX) minX=p[0]-r;
+    if (p[1]<minY) minY=p[1]-r;
+    if (p[0]>maxX) maxX=p[0]+r;
+    if (p[1]>maxY) maxY=p[1]+r;
+  }
+  stroke.bbox = {minX, minY, maxX, maxY};
+}
+
+function getContentBounds(){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const s of strokes){
+    if(!s.bbox)continue;
+    if(s.bbox.minX<minX)minX=s.bbox.minX;
+    if(s.bbox.minY<minY)minY=s.bbox.minY;
+    if(s.bbox.maxX>maxX)maxX=s.bbox.maxX;
+    if(s.bbox.maxY>maxY)maxY=s.bbox.maxY;
+  }
+  return{minX,minY,maxX,maxY};
+}
+
+function ptSegDistSq(px,py,ax,ay,bx,by){
+  const dx=bx-ax, dy=by-ay;
+  const lenSq=dx*dx+dy*dy;
+  if(lenSq<.01) return (px-ax)*(px-ax)+(py-ay)*(py-ay);
+  let t=((px-ax)*dx+(py-ay)*dy)/lenSq;
+  t=t<0?0:t>1?1:t;
+  const cx=ax+t*dx, cy=ay+t*dy;
+  return (px-cx)*(px-cx)+(py-cy)*(py-cy);
+}
+
+function eraserHitsStroke(ex, ey, er, stroke){
+  if(!stroke.bbox) return false;
+  const sz = stroke.config.size || stroke.config.baseSize || 4;
+  const margin=er+sz/2+2;
+  if(ex-margin>stroke.bbox.maxX||ex+margin<stroke.bbox.minX||
+     ey-margin>stroke.bbox.maxY||ey+margin<stroke.bbox.minY) return false;
+  const inkR=sz/2+1;
+  const hitDistSq=(er+inkR)*(er+inkR);
+  const pts=stroke.points;
+  for(let i=0;i<pts.length;i++){
+    if(i===0||pts.length===1){
+      const dx=ex-pts[i][0], dy=ey-pts[i][1];
+      if(dx*dx+dy*dy<hitDistSq) return true;
+    }else{
+      if(ptSegDistSq(ex,ey,pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1])<hitDistSq) return true;
+    }
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+// Canvas Sizing & View
+// ═══════════════════════════════════════════════════════
+function resizeCanvas(){
+  const dpr=devicePixelRatio||1;
+  canvas.width=container.clientWidth*dpr;
+  canvas.height=container.clientHeight*dpr;
+  committedDirty = true;
+  scheduleRender();
+}
+function resetView(){
+  state.zoom=1;
+  if(strokes.length>0){
+    const b=getContentBounds();
+    const cw=container.clientWidth, ch=container.clientHeight;
+    const contentW=b.maxX-b.minX, contentH=b.maxY-b.minY;
+    state.panX=(cw-contentW)/2-b.minX;
+    state.panY=(ch-contentH)/2-b.minY;
+  }else{
+    state.panX=container.clientWidth/2;
+    state.panY=container.clientHeight/2;
+  }
+  committedDirty = true;
+  scheduleRender();
+}
+function screenToDoc(sx,sy){ return {x:(sx-state.panX)/state.zoom, y:(sy-state.panY)/state.zoom}; }
+function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+
+// ═══════════════════════════════════════════════════════
+// Rendering Pipeline — Dual Canvas Optimization
+// ═══════════════════════════════════════════════════════
+let gridPattern=null;
+function createGridPattern(){
+  const sz=24, pc=document.createElement('canvas');
+  pc.width=sz; pc.height=sz;
+  const p=pc.getContext('2d');
+  p.fillStyle='rgba(0,0,0,.06)';
+  p.beginPath(); p.arc(sz/2,sz/2,.9,0,Math.PI*2); p.fill();
+  gridPattern=ctx.createPattern(pc,'repeat');
+}
+
+function drawGrid(c,w,h){
+  if(!gridPattern||state.zoom<.25) return;
+  const gs=24*state.zoom;
+  if(gs<5) return;
+  const offX=((state.panX%gs)+gs)%gs, offY=((state.panY%gs)+gs)%gs;
+  const m=new DOMMatrix();
+  m.translateSelf(offX,offY); m.scaleSelf(state.zoom,state.zoom);
+  try{gridPattern.setTransform(m)}catch(e){return}
+  c.fillStyle=gridPattern; c.fillRect(0,0,w,h);
+}
+
+let committedCanvas = null;
+let committedDirty = true;
+let lastRenderZoom = 0;
+
+function ensureCommittedCanvas() {
+  const dpr = devicePixelRatio || 1;
+  const cw = container.clientWidth * dpr;
+  const ch = container.clientHeight * dpr;
+  if (!committedCanvas || committedCanvas.width !== cw || committedCanvas.height !== ch) {
+    committedCanvas = document.createElement('canvas');
+    committedCanvas.width = cw;
+    committedCanvas.height = ch;
+    committedDirty = true;
+  }
+}
+
+function rebuildCommitted() {
+  ensureCommittedCanvas();
+  const cctx = committedCanvas.getContext('2d');
+  const dpr = devicePixelRatio || 1;
+  const cw = committedCanvas.width / dpr;
+  const ch = committedCanvas.height / dpr;
+
+  cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cctx.clearRect(0, 0, cw, ch);
+
+  const vx0 = -state.panX / state.zoom;
+  const vy0 = -state.panY / state.zoom;
+  const vx1 = (cw - state.panX) / state.zoom;
+  const vy1 = (ch - state.panY) / state.zoom;
+
+  cctx.save();
+  cctx.translate(state.panX, state.panY);
+  cctx.scale(state.zoom, state.zoom);
+
+  for (const s of strokes) {
+    renderStroke(cctx, s, vx0, vy0, vx1, vy1);
+  }
+
+  cctx.restore();
+  committedDirty = false;
+  lastRenderZoom = state.zoom;
+}
+
+function render(){
+  const dpr=devicePixelRatio||1;
+  const cw=canvas.width/dpr, ch=canvas.height/dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle='#FFF'; ctx.fillRect(0,0,cw,ch);
+  drawGrid(ctx,cw,ch);
+
+  if (committedDirty || lastRenderZoom !== state.zoom) {
+    rebuildCommitted();
+  }
+
+  if (committedCanvas) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(committedCanvas, 0, 0);
+    ctx.restore();
+  }
+
+  if (state.drawing && currentStroke) {
+    const vx0 = -state.panX / state.zoom;
+    const vy0 = -state.panY / state.zoom;
+    const vx1 = (cw - state.panX) / state.zoom;
+    const vy1 = (ch - state.panY) / state.zoom;
+
+    ctx.save();
+    ctx.translate(state.panX, state.panY);
+    ctx.scale(state.zoom, state.zoom);
+    renderStroke(ctx, currentStroke, vx0, vy0, vx1, vy1);
+    ctx.restore();
+  }
+
+  ctx.globalAlpha = 1;
+
+  if(state.tool==='eraser' && state.drawing && pendingErasure.size>0){
+    ctx.save();
+    ctx.translate(state.panX, state.panY);
+    ctx.scale(state.zoom, state.zoom);
+    ctx.strokeStyle='rgba(255,255,255,.55)';
+    ctx.fillStyle='rgba(255,255,255,.55)';
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    for(const id of pendingErasure){
+      const s=strokes.find(st=>st.id===id);
+      if(!s||!s.points||!s.points.length) continue;
+      const w=s.config.size || s.config.baseSize || 4;
+      ctx.lineWidth=w;
+      if(s.points.length===1){
+        ctx.beginPath();
+        ctx.arc(s.points[0][0],s.points[0][1],w/2,0,Math.PI*2);
+        ctx.fill();
+      }else{
+        ctx.beginPath();
+        ctx.moveTo(s.points[0][0],s.points[0][1]);
+        for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i][0],s.points[i][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  if(state.tool==='eraser' && state.drawing && eraserPoints.length>0){
+    ctx.save();
+    ctx.translate(state.panX, state.panY);
+    ctx.scale(state.zoom, state.zoom);
+    const ep=eraserPoints[eraserPoints.length-1];
+    ctx.strokeStyle='rgba(0,0,0,.25)';
+    ctx.lineWidth=1.5/state.zoom;
+    ctx.beginPath();
+    ctx.arc(ep.x, ep.y, CONFIG.eraserSize/2, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  renderRequested=false;
+}
+
+function scheduleRender(){
+  if(!renderRequested){ renderRequested=true; requestAnimationFrame(render); }
+}
+
+// ═══════════════════════════════════════════════════════
+// Zoom & Pan
+// ═══════════════════════════════════════════════════════
+let zoomFadeTimer=null;
+function showZoomIndicator(){
+  zoomInd.textContent=Math.round(state.zoom*100)+'%';
+  zoomInd.classList.add('show');
+  clearTimeout(zoomFadeTimer);
+  zoomFadeTimer=setTimeout(()=>zoomInd.classList.remove('show'),1200);
+}
+function applyZoom(nz,fx,fy){
+  const wx=(fx-state.panX)/state.zoom, wy=(fy-state.panY)/state.zoom;
+  state.zoom=clamp(nz,CONFIG.minZoom,CONFIG.maxZoom);
+  state.panX=fx-wx*state.zoom; state.panY=fy-wy*state.zoom;
+  committedDirty = true;
+  showZoomIndicator(); scheduleRender();
+}
+canvas.addEventListener('wheel',(e)=>{
+  e.preventDefault();
+  if(state.zoomLocked) return;
+  const r=canvas.getBoundingClientRect();
+  applyZoom(state.zoom*(e.deltaY>0?.92:1.09),e.clientX-r.left,e.clientY-r.top);
+},{passive:false});
+
+// ═══════════════════════════════════════════════════════
+// Pointer Events
+// ═══════════════════════════════════════════════════════
+function releaseActivePointer(){
+  if(activePointerId!==null){
+    try{canvas.releasePointerCapture(activePointerId)}catch(_){}
+    activePointerId=null;
+  }
+  if(isPanning){isPanning=false;canvas.classList.remove('cursor-panning')}
+  if(state.drawing) cancelStroke();
+  eraserPoints=[];
+  pendingErasure.clear();
+}
+
+function getDocPos(cx,cy){
+  const r=canvas.getBoundingClientRect();
+  return screenToDoc(cx-r.left, cy-r.top);
+}
+
+canvas.addEventListener('pointerdown',(e)=>{
+  if(state.pickerOpen||state.tuningOpen||state.projectOpen){closeAllPopups();return;}
+  if(activePointerId!==null) return;
+
+  if(e.button===1||spaceHeld){
+    isPanning=true;
+    panStartX=e.clientX;panStartY=e.clientY;
+    panStartPanX=state.panX;panStartPanY=state.panY;
+    canvas.classList.add('cursor-panning');
+    canvas.setPointerCapture(e.pointerId);
+    activePointerId=e.pointerId;
+    e.preventDefault(); return;
+  }
+  if(e.button!==0) return;
+
+  if(e.pointerType==='touch'&&!state.touchDraw){
+    isPanning=true;
+    panStartX=e.clientX;panStartY=e.clientY;
+    panStartPanX=state.panX;panStartPanY=state.panY;
+    canvas.setPointerCapture(e.pointerId);
+    activePointerId=e.pointerId;
+    e.preventDefault(); return;
+  }
+
+  activePointerId=e.pointerId;
+  canvas.setPointerCapture(e.pointerId);
+
+  const pos=getDocPos(e.clientX,e.clientY);
+
+  if(state.tool==='eraser'){
+    state.drawing=true;
+    eraserPoints=[{x:pos.x,y:pos.y}];
+    pendingErasure.clear();
+    const er=CONFIG.eraserSize/2;
+    for(const s of strokes){
+      if(eraserHitsStroke(pos.x, pos.y, er, s)){
+        pendingErasure.add(s.id);
+      }
+    }
+    scheduleRender();
+  } else {
+    const pressure = getEffectivePressure(e);
+    const isPen = e.pointerType === 'pen';
+    currentStroke = {
+      id: nextStrokeId++,
+      tool: 'pen',
+      color: state.color,
+      pressureMode: state.pressureMode,
+      isPen: isPen,
+      config: {...CONFIG},
+      points: [[pos.x, pos.y, pressure]],
+      bbox: null,
+    };
+    state.drawing=true;
+    if(!hasDrawn){hasDrawn=true;hint.classList.add('hidden')}
+    scheduleRender();
+  }
+});
+
+canvas.addEventListener('pointermove',(e)=>{
+  if(e.pointerId!==activePointerId) return;
+  if(isPanning){
+    state.panX=panStartPanX+(e.clientX-panStartX);
+    state.panY=panStartPanY+(e.clientY-panStartY);
+    committedDirty=true;
+    scheduleRender();
+  } else if(state.drawing){
+    const events = (e.getCoalescedEvents && e.getCoalescedEvents().length > 0)
+      ? e.getCoalescedEvents() : [e];
+
+    if(state.tool==='eraser'){
+      const lastEv = events[events.length - 1];
+      const pos = getDocPos(lastEv.clientX, lastEv.clientY);
+      eraserPoints.push({x:pos.x,y:pos.y});
+      const er=CONFIG.eraserSize/2;
+      for(const s of strokes){
+        if(!pendingErasure.has(s.id) && eraserHitsStroke(pos.x,pos.y,er,s)){
+          pendingErasure.add(s.id);
+        }
+      }
+      scheduleRender();
+    } else if(currentStroke){
+      for (const ce of events) {
+        const pos = getDocPos(ce.clientX, ce.clientY);
+        const pressure = getEffectivePressure(ce);
+
+        if (currentStroke.points.length > 0 && ce.pointerType === 'pen') {
+          const last = currentStroke.points[currentStroke.points.length - 1];
+          const d = Math.sqrt((pos.x - last[0]) ** 2 + (pos.y - last[1]) ** 2);
+          if (d < 1 / state.zoom) {
+            currentStroke.points[currentStroke.points.length - 1] = [pos.x, pos.y, pressure];
+            scheduleRender();
+            continue;
+          }
+        }
+
+        currentStroke.points.push([pos.x, pos.y, pressure]);
+      }
+      scheduleRender();
+    }
+  }
+});
+
+canvas.addEventListener('pointerup',(e)=>{
+  if(e.pointerId!==activePointerId) return;
+  if(isPanning){isPanning=false;canvas.classList.remove('cursor-panning')}
+  if(state.drawing){
+    if(state.tool==='eraser'){
+      if(pendingErasure.size>0){
+        const removeSet=new Set(pendingErasure);
+        strokes=strokes.filter(s=>!removeSet.has(s.id));
+        committedDirty = true;
+        scheduleRender();
+        autoSave();
+        showToast(tf('toast.erased',{n:removeSet.size}));
+      }
+      state.drawing=false;
+      eraserPoints=[];
+      pendingErasure.clear();
+    } else if(currentStroke){
+      computeBBox(currentStroke);
+      commitStroke(currentStroke);
+    }
+  }
+  activePointerId=null;
+});
+
+canvas.addEventListener('pointercancel',(e)=>{
+  if(e.pointerId!==activePointerId) return;
+  if(isPanning){isPanning=false;canvas.classList.remove('cursor-panning')}
+  cancelStroke();
+  eraserPoints=[];
+  pendingErasure.clear();
+  activePointerId=null;
+});
+
+// ═══════════════════════════════════════════════════════
+// Pressure
+// ═══════════════════════════════════════════════════════
+function getEffectivePressure(e){
+  if(state.pressureMode==='native'){
+    if(e.pointerType==='pen' && e.pressure>0){
+      return e.pressure;
+    }
+    return 0.8;
+  }
+  return null;
+}
+
+// ── Touch: two-finger pinch/pan ──
+canvas.addEventListener('touchstart',(e)=>{
+  e.preventDefault();
+  if(e.touches.length>=2){
+    releaseActivePointer();
+    pinching=true;
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    lastPinchDist=Math.sqrt(dx*dx+dy*dy);
+    lastPinchCenter={x:(e.touches[0].clientX+e.touches[1].clientX)/2,
+                     y:(e.touches[0].clientY+e.touches[1].clientY)/2};
+  }
+  closeAllPopups();
+},{passive:false});
+
+canvas.addEventListener('touchmove',(e)=>{
+  e.preventDefault();
+  if(e.touches.length===2&&pinching){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    if(lastPinchDist>0 && !state.zoomLocked){
+      const r=canvas.getBoundingClientRect();
+      const sx=cx-r.left, sy=cy-r.top;
+      const wx=(sx-state.panX)/state.zoom, wy=(sy-state.panY)/state.zoom;
+      const nz=clamp(state.zoom*(dist/lastPinchDist),CONFIG.minZoom,CONFIG.maxZoom);
+      state.panX=sx-wx*nz; state.panY=sy-wy*nz; state.zoom=nz;
+      committedDirty = true;
+      showZoomIndicator();
+    }
+    state.panX+=cx-lastPinchCenter.x;
+    state.panY+=cy-lastPinchCenter.y;
+    lastPinchCenter={x:cx,y:cy};
+    lastPinchDist=dist;
+    scheduleRender();
+  }
+},{passive:false});
+
+canvas.addEventListener('touchend',(e)=>{
+  if(e.touches.length<2){pinching=false;lastPinchDist=0}
+});
+canvas.addEventListener('touchcancel',()=>{pinching=false;lastPinchDist=0});
+
+// ── Keyboard ──
+document.addEventListener('keydown',(e)=>{
+  if(e.code==='Space'&&!e.repeat){e.preventDefault();spaceHeld=true;if(!state.drawing)canvas.classList.add('cursor-pan')}
+  if(e.code==='KeyP'||e.code==='KeyB')setTool('pen');
+  if(e.code==='KeyE')setTool('eraser');
+  if(e.code==='KeyC'&&!e.ctrlKey&&!e.metaKey)toggleColorPicker();
+  if(e.code==='KeyT')toggleTouchDraw();
+  if(e.code==='KeyG')togglePressureMode();
+  if(e.code==='KeyS'&&!e.ctrlKey&&!e.metaKey)toggleTuning();
+  if(e.code==='Escape')closeAllPopups();
+});
+document.addEventListener('keyup',(e)=>{
+  if(e.code==='Space'){spaceHeld=false;canvas.classList.remove('cursor-pan')}
+});
+
+// ═══════════════════════════════════════════════════════
+// Tool / Mode Management
+// ═══════════════════════════════════════════════════════
+function setTool(t){
+  state.tool=t;
+  penBtn.classList.toggle('active',t==='pen');
+  eraserBtn.classList.toggle('active',t==='eraser');
+  canvas.className=t==='pen'?'cursor-pen':'cursor-eraser';
+}
+
+function toggleTouchDraw(){
+  state.touchDraw=!state.touchDraw;
+  touchBtn.classList.toggle('active',state.touchDraw);
+  showToast(state.touchDraw?t('touch.on'):t('touch.off'));
+}
+
+function togglePressureMode(){
+  state.pressureMode = state.pressureMode==='simulated'?'native':'simulated';
+  const isSimulated = state.pressureMode==='simulated';
+  pressureBtn.classList.toggle('active',isSimulated);
+  showToast(isSimulated?t('pressure.on'):t('pressure.off'));
+}
+
+function toggleZoomLock(){
+  state.zoomLocked=!state.zoomLocked;
+  zoomLockBtn.classList.toggle('active',state.zoomLocked);
+  if(state.zoomLocked){
+    const fx=container.clientWidth/2, fy=container.clientHeight/2;
+    const wx=(fx-state.panX)/state.zoom, wy=(fy-state.panY)/state.zoom;
+    state.zoom=1;
+    state.panX=fx-wx; state.panY=fy-wy;
+    committedDirty=true;
+    scheduleRender();
+    zoomInd.textContent='100%';
+    zoomInd.classList.add('show');
+    clearTimeout(zoomFadeTimer);
+    zoomFadeTimer=setTimeout(()=>zoomInd.classList.remove('show'),1200);
+  }
+  showToast(state.zoomLocked?t('toast.zoomLock.on'):t('toast.zoomLock.off'));
+}
+
+function resetCanvas(){
+  if(strokes.length>0 && !confirm(t('confirm.reset'))) return;
+  strokes=[]; nextStrokeId=1;
+  currentStroke=null; state.drawing=false;
+  hasDrawn=false; hint.classList.remove('hidden');
+  try{localStorage.removeItem(AUTOSAVE_KEY)}catch(_){}
+  resetView();
+  showToast(t('toast.cleared'));
+}
+
+function createRipple(btn){
+  btn.classList.remove('ripple-active','ripple-fade');
+  void btn.offsetWidth;
+  btn.classList.add('ripple-active');
+  setTimeout(()=>{btn.classList.remove('ripple-active');btn.classList.add('ripple-fade')},80);
+  setTimeout(()=>btn.classList.remove('ripple-fade'),450);
+}
+
+penBtn.addEventListener('click',()=>{createRipple(penBtn);setTool('pen')});
+eraserBtn.addEventListener('click',()=>{createRipple(eraserBtn);setTool('eraser')});
+colorBtn.addEventListener('click',()=>{createRipple(colorBtn);toggleColorPicker()});
+touchBtn.addEventListener('click',()=>{createRipple(touchBtn);toggleTouchDraw()});
+pressureBtn.addEventListener('click',()=>{createRipple(pressureBtn);togglePressureMode()});
+zoomLockBtn.addEventListener('click',()=>{createRipple(zoomLockBtn);toggleZoomLock()});
+resetBtn.addEventListener('click',()=>{createRipple(resetBtn);resetCanvas()});
+projectBtn.addEventListener('click',()=>{createRipple(projectBtn);toggleProjectMenu()});
+tuningBtn.addEventListener('click',()=>{createRipple(tuningBtn);toggleTuning()});
+
+// ═══════════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════════
+let toastTimer=null;
+function showToast(msg){
+  toastEl.textContent=msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800);
+}
+
+// ═══════════════════════════════════════════════════════
+// Color Picker
+// ═══════════════════════════════════════════════════════
+function buildColorPicker(){
+  const el=document.getElementById('color-picker');
+  el.innerHTML='';
+  COLORS.forEach(c=>{
+    const s=document.createElement('div');
+    s.className='color-swatch'+(c===state.color?' selected':'');
+    s.style.background=c; s.addEventListener('click',()=>setColor(c));
+    el.appendChild(s);
+  });
+  const row=document.createElement('div');row.className='color-custom-row';
+  const inp=document.createElement('input');
+  inp.type='color';inp.id='custom-color-input';inp.value=state.color;
+  inp.addEventListener('input',(e)=>setColor(e.target.value));
+  const lbl=document.createElement('label');
+  lbl.textContent=t('color.custom');
+  row.appendChild(inp);row.appendChild(lbl);el.appendChild(row);
+}
+
+function positionPopup(el,anchor,pw,ph){
+  const r=anchor.getBoundingClientRect();
+  let left,top;
+  if(matchMedia('(orientation:landscape)').matches){
+    left=r.right+12;top=r.top;
+    if(left+pw>innerWidth-8)left=r.left-pw-12;
+  }else{
+    left=r.left;top=r.bottom+12;
+    if(top+ph>innerHeight-8)top=r.top-ph-12;
+  }
+  el.style.left=clamp(left,8,innerWidth-pw-8)+'px';
+  el.style.top=clamp(top,8,innerHeight-ph-8)+'px';
+}
+
+function openColorPicker(){closeTuning();closeProjectMenu();state.pickerOpen=true;
+  document.getElementById('color-picker-overlay').classList.add('show');
+  document.getElementById('color-picker').classList.add('show');
+  positionPopup(document.getElementById('color-picker'),colorBtn,200,180)}
+function closeColorPicker(){state.pickerOpen=false;
+  document.getElementById('color-picker-overlay').classList.remove('show');
+  document.getElementById('color-picker').classList.remove('show')}
+function toggleColorPicker(){state.pickerOpen?closeColorPicker():openColorPicker()}
+
+function setColor(c){
+  state.color=c; colorDot.style.background=c;
+  document.getElementById('color-picker').querySelectorAll('.color-swatch').forEach(s=>{
+    s.classList.toggle('selected',s.style.background===c||rgbToHex(s.style.background)===c.toUpperCase())});
+  const ci=document.getElementById('custom-color-input');if(ci)ci.value=c;
+}
+
+function rgbToHex(rgb){
+  const m=rgb.match(/\d+/g);
+  if(!m||m.length<3)return '';
+  return '#'+m.slice(0,3).map(v=>parseInt(v).toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+document.getElementById('color-picker-overlay').addEventListener('click',closeColorPicker);
+
+// ═══════════════════════════════════════════════════════
+// Tuning Panel (stroke settings)
+// ═══════════════════════════════════════════════════════
+const SETTINGS_DEFS=[
+  {title:t('set.shape'),params:[
+    {key:'size',label:t('set.size'),min:1,max:40,step:1,fmt:v=>v},
+    {key:'thinning',label:t('set.thinning'),min:0,max:1,step:.05,fmt:v=>v.toFixed(2)},
+  ]},
+  {title:t('set.cap'),params:[
+    {key:'lineCap',label:t('set.lineCap'),min:0,max:1,step:1,fmt:v=>v==='round'?t('cap.round'):t('cap.pointed'),toggle:true,
+     onChange:v=>{CONFIG.lineCap=v?'round':'pointed';return v?'round':'pointed'}},
+  ]},
+  {title:t('set.smooth'),params:[
+    {key:'streamline',label:t('set.streamline'),min:0,max:1,step:.05,fmt:v=>v.toFixed(2)},
+    {key:'smoothing',label:t('set.smoothing'),min:0,max:1,step:.05,fmt:v=>v.toFixed(2)},
+  ]},
+];
+
+function buildTuning(){
+  const el=document.getElementById('tuning-panel');
+  el.innerHTML='';
+  SETTINGS_DEFS.forEach(section=>{
+    const sec=document.createElement('div');sec.className='settings-section';
+    const title=document.createElement('div');title.className='settings-section-title';
+    title.textContent=section.title;sec.appendChild(title);
+    section.params.forEach(p=>{
+      const row=document.createElement('div');row.className='settings-row';
+      const lbl=document.createElement('label');lbl.textContent=p.label;
+      if(p.toggle){
+        const btn=document.createElement('button');
+        btn.className='cap-toggle-btn';
+        const curVal=CONFIG[p.key];
+        btn.textContent=p.fmt(curVal);
+        btn.addEventListener('click',()=>{
+          const newVal=p.onChange(CONFIG[p.key]==='round'?0:1);
+          CONFIG[p.key]=newVal;
+          btn.textContent=p.fmt(newVal);
+        });
+        row.appendChild(lbl);row.appendChild(btn);
+      }else{
+        const inp=document.createElement('input');inp.type='range';
+        inp.min=p.min;inp.max=p.max;inp.step=p.step;inp.value=CONFIG[p.key];
+        const val=document.createElement('span');val.className='val';
+        val.textContent=p.fmt(CONFIG[p.key]);
+        inp.addEventListener('input',()=>{
+          CONFIG[p.key]=parseFloat(inp.value);
+          val.textContent=p.fmt(CONFIG[p.key]);
+        });
+        row.appendChild(lbl);row.appendChild(inp);row.appendChild(val);
+      }
+      sec.appendChild(row);
+    });
+    el.appendChild(sec);
+  });
+}
+
+function openTuning(){closeColorPicker();closeProjectMenu();state.tuningOpen=true;
+  document.getElementById('tuning-overlay').classList.add('show');
+  document.getElementById('tuning-panel').classList.add('show');
+  positionPopup(document.getElementById('tuning-panel'),tuningBtn,280,300)}
+function closeTuning(){state.tuningOpen=false;
+  document.getElementById('tuning-overlay').classList.remove('show');
+  document.getElementById('tuning-panel').classList.remove('show')}
+function toggleTuning(){state.tuningOpen?closeTuning():openTuning()}
+document.getElementById('tuning-overlay').addEventListener('click',closeTuning);
+
+// ═══════════════════════════════════════════════════════
+// Project Menu: Load / Save / Export PNG
+// ═══════════════════════════════════════════════════════
+function buildProjectMenu(){
+  const el=document.getElementById('project-menu');
+  const items=[
+    {icon:'folder_open',label:t('file.load'),action:loadProject},
+    {icon:'save',label:t('file.save'),action:saveProject},
+    {icon:'image',label:t('file.export'),action:exportPNG},
+  ];
+  items.forEach(item=>{
+    const btn=document.createElement('button');btn.className='file-menu-item';
+    btn.innerHTML=`<span class="material-symbols-rounded">${item.icon}</span>${item.label}`;
+    btn.addEventListener('click',()=>{closeProjectMenu();item.action()});
+    el.appendChild(btn);
+  });
+}
+
+function openProjectMenu(){closeColorPicker();closeTuning();state.projectOpen=true;
+  document.getElementById('project-overlay').classList.add('show');
+  document.getElementById('project-menu').classList.add('show');
+  positionPopup(document.getElementById('project-menu'),projectBtn,200,180)}
+function closeProjectMenu(){state.projectOpen=false;
+  document.getElementById('project-overlay').classList.remove('show');
+  document.getElementById('project-menu').classList.remove('show')}
+function toggleProjectMenu(){state.projectOpen?closeProjectMenu():openProjectMenu()}
+document.getElementById('project-overlay').addEventListener('click',closeProjectMenu);
+
+async function saveProject(){
+  const data={
+    version: SAVE_VERSION,
+    config: {...CONFIG},
+    strokes: strokes.map(s=>({
+      id:s.id, tool:s.tool, color:s.color,
+      pressureMode:s.pressureMode, isPen:s.isPen, config:s.config, points:s.points,
+      complete: s.complete
+    }))
+  };
+  const json=JSON.stringify(data);
+
+  if('showSaveFilePicker' in window){
+    try{
+      const handle=await window.showSaveFilePicker({
+        suggestedName:'inkpage-project.inkpage',
+        types:[{description:'inkpage Project',accept:{'application/json':['.inkpage','.json']}}]
+      });
+      const writable=await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      showToast(t('toast.saved'));
+    }catch(e){
+      if(e.name!=='AbortError') showToast(t('toast.saved'));
+    }
+  }else{
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='inkpage-project.inkpage';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(t('toast.saved'));
+  }
+}
+
+const fileInput=document.createElement('input');
+fileInput.type='file'; fileInput.accept='.inkpage,.json';
+fileInput.style.display='none';
+document.body.appendChild(fileInput);
+fileInput.addEventListener('change',(e)=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(ev)=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.config) Object.assign(CONFIG, data.config);
+      strokes=data.strokes.map(s=>({...s, bbox:null, complete:true}));
+      strokes.forEach(computeBBox);
+      nextStrokeId=strokes.reduce((mx,s)=>Math.max(mx,s.id),0)+1;
+      buildTuning();
+      committedDirty = true;
+      scheduleRender();
+      showToast(tf('toast.loaded',{n:strokes.length}));
+    }catch(err){
+      showToast(t('toast.load.error'));
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+  fileInput.value='';
+});
+
+function loadProject(){fileInput.click()}
+
+function exportPNG(){
+  if(!strokes.length) return;
+  const b=getContentBounds();
+  const pad=40;
+  const ox=b.minX-pad, oy=b.minY-pad;
+  const w=b.maxX-b.minX+pad*2, h=b.maxY-b.minY+pad*2;
+  const tmp=document.createElement('canvas');
+  tmp.width=w; tmp.height=h;
+  const tc=tmp.getContext('2d');
+  tc.fillStyle='#FFF'; tc.fillRect(0,0,w,h);
+  tc.save();
+  tc.translate(-ox,-oy);
+  for(const s of strokes) renderStroke(tc, s, b.minX-pad, b.minY-pad, b.maxX+pad, b.maxY+pad);
+  tc.restore();
+  tmp.toBlob((blob)=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='inkpage-export.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(t('toast.exported'));
+  },'image/png');
+}
+
+function closeAllPopups(){closeColorPicker();closeTuning();closeProjectMenu()}
+
+// ═══════════════════════════════════════════════════════
+// Resize & Init
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  if(state.pickerOpen)positionPopup(document.getElementById('color-picker'),colorBtn,200,180);
+  if(state.tuningOpen)positionPopup(document.getElementById('tuning-panel'),tuningBtn,280,300);
+  if(state.projectOpen)positionPopup(document.getElementById('project-menu'),projectBtn,200,180);
+  resizeCanvas();
+});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+function init(){
+  penBtn.title=t('tool.pen'); eraserBtn.title=t('tool.eraser');
+  colorBtn.title=t('tool.color'); touchBtn.title=t('tool.touch');
+  pressureBtn.title=t('tool.pressure');
+  zoomLockBtn.title=t('tool.zoomLock'); resetBtn.title=t('tool.reset');
+  projectBtn.title=t('tool.project'); tuningBtn.title=t('tool.tuning');
+  hint.textContent=t('hint');
+  createGridPattern();
+  buildColorPicker();
+  buildTuning();
+  buildProjectMenu();
+  const restored=autoLoad();
+  resizeCanvas();
+  if(state.pressureMode==='simulated') pressureBtn.classList.add('active');
+  if(!restored){
+    resetView();
+  }else{
+    if(state.zoomLocked) zoomLockBtn.classList.add('active');
+    if(state.touchDraw) touchBtn.classList.add('active');
+    buildTuning();
+    hasDrawn=true;hint.classList.add('hidden');
+    committedDirty=true;scheduleRender();
+  }
+  setTool('pen');
+  colorDot.style.background=state.color;
+}
+init();
+</script>
+</body>
+</html>
