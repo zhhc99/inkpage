@@ -21,10 +21,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -42,7 +42,10 @@ jobs:
           cp -r dist site/dist
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
+        with:
+          enablement: ${{ secrets.PAGES_TOKEN != '' }}
+          token: ${{ secrets.PAGES_TOKEN != '' && secrets.PAGES_TOKEN || github.token }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
