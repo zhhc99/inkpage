@@ -156,6 +156,7 @@ export const dom = {
   touchBtn: mustGetById<HTMLButtonElement>('touch-btn'),
   pressureBtn: mustGetById<HTMLButtonElement>('pressure-btn'),
   zoomLockBtn: mustGetById<HTMLButtonElement>('zoom-lock-btn'),
+  fullscreenBtn: mustGetById<HTMLButtonElement>('fullscreen-btn'),
   resetBtn: mustGetById<HTMLButtonElement>('reset-btn'),
   undoBtn: mustGetById<HTMLButtonElement>('undo-btn'),
   redoBtn: mustGetById<HTMLButtonElement>('redo-btn'),

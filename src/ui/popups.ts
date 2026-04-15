@@ -119,6 +119,7 @@ export function initTheme(): void {
     const normalized = stored === 'graphite' ? 'iris-dark' : stored;
     if (THEME_PRESETS.some(preset => preset.id === normalized)) state.theme = normalized as ThemeName;
   } catch {}
+  state.color = normalizeSpecialInkForTheme(state.color, state.theme);
   document.documentElement.dataset.theme = state.theme;
 }
 

@@ -15,12 +15,13 @@ import {
 } from './popups';
 import { setToolbarHidden } from '../utils/dom';
 
-const OVERFLOW_PRIORITY = [dom.resetBtn, dom.redoBtn, dom.undoBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
+const OVERFLOW_PRIORITY = [dom.resetBtn, dom.redoBtn, dom.undoBtn, dom.fullscreenBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
 
 const OVERFLOW_ITEMS = [
   { button: dom.touchBtn, icon: 'touch_app', label: 'tool.touch', action: toggleTouchDraw, isActive: () => state.touchDraw },
   { button: dom.pressureBtn, icon: 'gesture', label: 'tool.pressure', action: togglePressureMode, isActive: () => state.pressureMode === 'simulated' },
   { button: dom.zoomLockBtn, icon: 'center_focus_strong', label: 'tool.zoomLock', action: toggleZoomLock, isActive: () => state.zoomLocked },
+  { button: dom.fullscreenBtn, icon: 'fullscreen', label: 'tool.fullscreen', action: toggleFullscreen, isActive: () => !!document.fullscreenElement, isAvailable: isFullscreenSupported },
   { button: dom.undoBtn, icon: 'undo', label: 'tool.undo', action: undo, isDisabled: () => runtime.undoStack.length === 0 },
   { button: dom.redoBtn, icon: 'redo', label: 'tool.redo', action: redo, isDisabled: () => runtime.redoStack.length === 0 },
   { button: dom.resetBtn, icon: 'note_add', label: 'tool.reset', action: resetCanvas },
@@ -45,7 +46,7 @@ function isToolbarOverflowing(): boolean {
 }
 
 function refreshToolbarDividers(): void {
-  const group2Visible = !dom.touchBtn.classList.contains('toolbar-hidden') || !dom.pressureBtn.classList.contains('toolbar-hidden') || !dom.zoomLockBtn.classList.contains('toolbar-hidden');
+  const group2Visible = !dom.touchBtn.classList.contains('toolbar-hidden') || !dom.pressureBtn.classList.contains('toolbar-hidden') || !dom.zoomLockBtn.classList.contains('toolbar-hidden') || !dom.fullscreenBtn.classList.contains('toolbar-hidden');
   const group3Visible = !dom.undoBtn.classList.contains('toolbar-hidden') || !dom.redoBtn.classList.contains('toolbar-hidden') || !dom.resetBtn.classList.contains('toolbar-hidden');
   const moreVisible = !dom.moreBtn.classList.contains('toolbar-hidden');
   const settingsVisible = !dom.settingsBtn.classList.contains('toolbar-hidden');
@@ -59,6 +60,7 @@ export function buildMoreMenu(): number {
   dom.moreMenu.innerHTML = '';
   let count = 0;
   for (const item of OVERFLOW_ITEMS) {
+    if (item.isAvailable && !item.isAvailable()) continue;
     if (!item.button.classList.contains('toolbar-hidden')) continue;
     const btn = document.createElement('button');
     btn.className = 'file-menu-item';
@@ -80,6 +82,7 @@ export function buildMoreMenu(): number {
 
 export function updateToolbarOverflow(): void {
   for (const btn of OVERFLOW_PRIORITY) setToolbarHidden(btn, false);
+  if (!isFullscreenSupported()) setToolbarHidden(dom.fullscreenBtn, true);
   setToolbarHidden(dom.moreBtn, true);
   refreshToolbarDividers();
   if (isToolbarOverflowing()) {
@@ -173,10 +176,33 @@ export function toggleZoomLock(): void {
   showToast(state.zoomLocked ? t('toast.zoomLock.on') : t('toast.zoomLock.off'));
 }
 
+function isFullscreenSupported(): boolean {
+  return typeof document.fullscreenEnabled === 'boolean' ? document.fullscreenEnabled : 'requestFullscreen' in document.documentElement;
+}
+
+function syncFullscreenButton(): void {
+  const active = !!document.fullscreenElement;
+  setPressedState(dom.fullscreenBtn, active);
+  const icon = dom.fullscreenBtn.querySelector('.material-symbols-rounded');
+  if (icon) icon.textContent = active ? 'fullscreen_exit' : 'fullscreen';
+}
+
+export async function toggleFullscreen(): Promise<void> {
+  if (!isFullscreenSupported()) return;
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch {}
+}
+
 export function syncToolbarState(): void {
   setPressedState(dom.touchBtn, state.touchDraw);
   setPressedState(dom.pressureBtn, state.pressureMode === 'simulated');
   setPressedState(dom.zoomLockBtn, state.zoomLocked);
+  syncFullscreenButton();
   syncTouchDrawHint();
   updateHistoryButtons();
 }
@@ -242,6 +268,10 @@ export function initToolbar(): void {
     createRipple(dom.zoomLockBtn);
     toggleZoomLock();
   });
+  dom.fullscreenBtn.addEventListener('click', () => {
+    createRipple(dom.fullscreenBtn);
+    void toggleFullscreen();
+  });
   dom.undoBtn.addEventListener('click', () => {
     createRipple(dom.undoBtn);
     undo();
@@ -263,12 +293,18 @@ export function initToolbar(): void {
     toggleMoreMenu();
   });
   dom.moreOverlay.addEventListener('click', closeMoreMenu);
+  document.addEventListener('fullscreenchange', () => {
+    syncFullscreenButton();
+    if (state.moreOpen) buildMoreMenu();
+    showToast(document.fullscreenElement ? t('toast.fullscreen.on') : t('toast.fullscreen.off'));
+  });
   dom.inkBtn.title = t('tool.ink');
   dom.eraserBtn.title = t('tool.eraser');
   dom.selectBtn.title = t('tool.select');
   dom.colorBtn.title = t('tool.color');
   dom.touchBtn.title = t('tool.touch');
   dom.pressureBtn.title = t('tool.pressure');
+  dom.fullscreenBtn.title = t('tool.fullscreen');
   dom.undoBtn.title = t('tool.undo');
   dom.redoBtn.title = t('tool.redo');
   dom.moreBtn.title = t('tool.more');
@@ -281,6 +317,7 @@ export function initToolbar(): void {
   dom.colorBtn.setAttribute('aria-label', t('tool.color'));
   dom.touchBtn.setAttribute('aria-label', t('tool.touch'));
   dom.pressureBtn.setAttribute('aria-label', t('tool.pressure'));
+  dom.fullscreenBtn.setAttribute('aria-label', t('tool.fullscreen'));
   dom.undoBtn.setAttribute('aria-label', t('tool.undo'));
   dom.redoBtn.setAttribute('aria-label', t('tool.redo'));
   dom.moreBtn.setAttribute('aria-label', t('tool.more'));
@@ -289,5 +326,6 @@ export function initToolbar(): void {
   dom.settingsBtn.setAttribute('aria-label', t('tool.settings'));
   document.getElementById('toolbar')?.setAttribute('aria-label', t('toolbar.label'));
   dom.hint.textContent = t('hint');
+  if (!isFullscreenSupported()) setToolbarHidden(dom.fullscreenBtn, true);
   syncToolbarState();
 }
