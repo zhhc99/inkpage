@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>inkpage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --md-primary:#6750A4;--md-on-primary:#FFF;--md-primary-container:#EADDFF;
+  --md-on-primary-container:#21005D;--md-secondary-container:#E8DEF8;
+  --md-on-secondary-container:#1D192B;--md-surface:#FEF7FF;
+  --md-surface-container-lowest:#FFF;--md-surface-container-low:#F7F2FA;
+  --md-surface-container:#F3EDF7;--md-surface-container-high:#ECE6F0;
+  --md-surface-container-highest:#E6E0E9;--md-on-surface:#1D1B20;
+  --md-on-surface-variant:#49454F;--md-outline:#79747E;
+  --md-outline-variant:#CAC4D0;--md-shadow:rgba(0,0,0,0.15);
+  --md-shape-corner-full:9999px;--md-shape-corner-l:16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Roboto',sans-serif;
+  -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+
+#app{display:flex;width:100vw;height:100dvh;overflow:hidden;background:var(--md-surface-container-low)}
+
+#toolbar{position:relative;display:flex;align-items:center;justify-content:center;gap:2px;
+  background:var(--md-surface-container);z-index:95;flex-shrink:0}
+@media(orientation:landscape){
+  #app{flex-direction:row}
+  #toolbar{flex-direction:column;width:72px;height:100%;padding:10px 0;
+    border-right:1px solid var(--md-outline-variant);box-shadow:2px 0 8px var(--md-shadow)}
+}
+@media(orientation:portrait){
+  #app{flex-direction:column}
+  #toolbar{flex-direction:row;width:100%;height:52px;padding:0 8px;
+    border-bottom:1px solid var(--md-outline-variant);box-shadow:0 2px 8px var(--md-shadow)}
+}
+
+.tool-btn{position:relative;display:flex;align-items:center;justify-content:center;
+  width:42px;height:42px;border:none;border-radius:var(--md-shape-corner-full);
+  background:transparent;color:var(--md-on-surface-variant);cursor:pointer;
+  outline:none;overflow:visible;flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .2s,color .2s}
+.tool-btn:hover{background:rgba(28,27,32,.08)}
+.tool-btn:active{background:rgba(28,27,32,.12)}
+.tool-btn.active{background:var(--md-secondary-container);color:var(--md-on-secondary-container)}
+.tool-btn:disabled{opacity:.38;cursor:default}
+.tool-btn:disabled:hover,.tool-btn:disabled:active{background:transparent}
+.tool-btn.touch-ignored{opacity:.42}
+.tool-btn.touch-ignored.active{opacity:.58}
+.tool-btn .material-symbols-rounded{font-size:22px;line-height:1;pointer-events:none}
+
+.tool-btn::before{content:'';position:absolute;top:50%;left:50%;width:0;height:0;
+  border-radius:50%;background:currentColor;opacity:0;pointer-events:none;
+  transform:translate(-50%,-50%);
+  transition:width .45s ease-out,height .45s ease-out,opacity .35s ease-out;
+  clip-path:circle(50% at 50% 50%)}
+.tool-btn.ripple-active::before{opacity:.15}
+.tool-btn.ripple-fade::before{opacity:0;transition:opacity .35s ease-out}
+.toolbar-hidden{display:none!important}
+
+.tool-divider{flex-shrink:0;background:var(--md-outline-variant)}
+@media(orientation:landscape){.tool-divider{width:24px;height:1px;margin:3px 0}}
+@media(orientation:portrait){.tool-divider{width:1px;height:24px;margin:0 3px}}
+
+#color-dot{position:absolute;bottom:2px;right:2px;width:11px;height:11px;
+  border-radius:50%;border:2px solid var(--md-surface-container);background:#1D1B20;
+  transition:background .2s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+
+#canvas-container{flex:1;position:relative;overflow:hidden;background:#FFF}
+#canvas{display:block;width:100%;height:100%;touch-action:none}
+
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:14px;color:var(--md-outline);pointer-events:none;white-space:nowrap;
+  transition:opacity .4s}
+#hint.hidden{opacity:0}
+
+.cursor-ink{cursor:crosshair}.cursor-eraser{cursor:crosshair}
+.cursor-select{cursor:grab}.cursor-moving{cursor:grabbing}
+.cursor-pan{cursor:grab}.cursor-panning{cursor:grabbing}
+
+.popup-overlay{position:fixed;inset:0;z-index:90;display:none}
+.popup-overlay.show{display:block}
+.popup-card{position:fixed;z-index:100;background:var(--md-surface-container-high);
+  border-radius:var(--md-shape-corner-l);padding:16px;
+  box-shadow:0 6px 24px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.1);
+  display:none;animation:popupIn .2s cubic-bezier(.2,0,0,1)}
+.popup-card.show{display:block}
+@keyframes popupIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+#color-picker{grid-template-columns:repeat(4,36px);gap:8px;justify-content:start}
+#color-picker.show{display:grid}
+.color-swatch{width:36px;height:36px;border-radius:50%;border:none;outline:none;
+  cursor:pointer;transition:transform .15s,box-shadow .2s;
+  -webkit-tap-highlight-color:transparent}
+.color-swatch:hover{transform:scale(1.15)}
+.color-swatch.selected{box-shadow:0 0 0 2.5px var(--md-surface-container-high),0 0 0 4.5px var(--md-primary)}
+.color-swatch.selected:hover{transform:scale(1.05)}
+.color-custom-row{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:4px;
+  padding-top:10px;border-top:1px solid var(--md-outline-variant)}
+.color-custom-row label{font-size:12px;color:var(--md-on-surface-variant);cursor:default}
+#custom-color-input{width:32px;height:32px;border:none;border-radius:50%;
+  cursor:pointer;background:none;padding:0;overflow:hidden}
+#custom-color-input::-webkit-color-swatch-wrapper{padding:0}
+#custom-color-input::-webkit-color-swatch{border:none;border-radius:50%}
+
+.cap-toggle-btn{padding:4px 16px;border-radius:var(--md-shape-corner-full);
+  border:1px solid var(--md-outline-variant);background:var(--md-surface-container-low);
+  color:var(--md-on-surface);font-size:12px;cursor:pointer;font-family:inherit;
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  transition:background .15s,border-color .15s}
+.cap-toggle-btn:hover{background:rgba(28,27,32,.08)}
+.cap-toggle-btn:active{background:rgba(28,27,32,.12)}
+
+#tuning-panel{width:280px;max-height:80vh;overflow-y:auto;overscroll-behavior:contain}
+#tuning-panel::-webkit-scrollbar{width:4px}
+#tuning-panel::-webkit-scrollbar-thumb{background:var(--md-outline-variant);border-radius:2px}
+.settings-section{margin-bottom:14px}
+.settings-section-title{font-size:11px;font-weight:500;color:var(--md-on-surface-variant);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.settings-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.settings-row label{font-size:12px;color:var(--md-on-surface-variant);flex:1;min-width:0;white-space:nowrap}
+.settings-row input[type=range]{flex:2;min-width:0;height:4px;
+  -webkit-appearance:none;appearance:none;background:var(--md-outline-variant);
+  border-radius:2px;outline:none}
+.settings-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;background:var(--md-primary);cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.settings-row .val{font-size:12px;font-weight:500;color:var(--md-on-surface);
+  min-width:36px;text-align:right;font-variant-numeric:tabular-nums}
+
+#project-menu{width:200px;padding:8px 0}
+#more-menu{width:220px;padding:8px 0}
+.file-menu-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;
+  border:none;border-radius:var(--md-shape-corner-l);background:transparent;
+  color:var(--md-on-surface);font-size:14px;cursor:pointer;text-align:left;
+  font-family:inherit;transition:background .15s}
+.file-menu-item:hover{background:rgba(28,27,32,.08)}
+.file-menu-item.active{background:var(--md-secondary-container);color:var(--md-on-secondary-container)}
+.file-menu-item.subtle{opacity:.56}
+.file-menu-item:disabled{opacity:.38;cursor:default}
+.file-menu-item:disabled:hover{background:transparent}
+.file-menu-item .material-symbols-rounded{font-size:20px;color:var(--md-on-surface-variant)}
+.file-menu-item.active .material-symbols-rounded{color:inherit}
+
+#zoom-indicator{position:absolute;bottom:16px;right:16px;
+  background:var(--md-surface-container-high);color:var(--md-on-surface-variant);
+  font-size:12px;font-weight:500;padding:6px 12px;border-radius:var(--md-shape-corner-full);
+  box-shadow:0 2px 8px var(--md-shadow);pointer-events:none;opacity:0;
+  transition:opacity .3s;z-index:40}
+#zoom-indicator.show{opacity:1}
+
+#toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  background:var(--md-on-surface);color:var(--md-surface-container-lowest);
+  font-size:12px;font-weight:500;padding:6px 14px;border-radius:var(--md-shape-corner-full);
+  box-shadow:0 2px 8px var(--md-shadow);pointer-events:none;opacity:0;
+  transition:opacity .3s;z-index:40;white-space:nowrap}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="toolbar" role="toolbar">
+    <button class="tool-btn active" id="ink-btn"><span class="material-symbols-rounded">edit</span></button>
+    <button class="tool-btn" id="eraser-btn"><span class="material-symbols-rounded">ink_eraser</span></button>
+    <button class="tool-btn" id="select-btn"><span class="material-symbols-rounded">select</span></button>
+    <div class="tool-divider" id="divider-a"></div>
+    <button class="tool-btn" id="color-btn">
+      <span class="material-symbols-rounded">palette</span><div id="color-dot"></div>
+    </button>
+    <button class="tool-btn" id="tuning-btn"><span class="material-symbols-rounded">tune</span></button>
+    <div class="tool-divider" id="divider-b"></div>
+    <button class="tool-btn" id="touch-btn"><span class="material-symbols-rounded">touch_app</span></button>
+    <button class="tool-btn" id="pressure-btn"><span class="material-symbols-rounded">gesture</span></button>
+    <button class="tool-btn" id="zoom-lock-btn"><span class="material-symbols-rounded">center_focus_strong</span></button>
+    <div class="tool-divider" id="divider-c"></div>
+    <button class="tool-btn" id="undo-btn"><span class="material-symbols-rounded">undo</span></button>
+    <button class="tool-btn" id="redo-btn"><span class="material-symbols-rounded">redo</span></button>
+    <button class="tool-btn" id="reset-btn"><span class="material-symbols-rounded">delete_sweep</span></button>
+    <button class="tool-btn" id="project-btn"><span class="material-symbols-rounded">folder</span></button>
+    <button class="tool-btn toolbar-hidden" id="more-btn"><span class="material-symbols-rounded">more_horiz</span></button>
+  </nav>
+  <main id="canvas-container">
+    <canvas id="canvas"></canvas>
+    <div id="hint"></div>
+    <div id="zoom-indicator">100%</div>
+    <div id="toast"></div>
+  </main>
+</div>
+
+<div id="color-picker-overlay" class="popup-overlay"></div>
+<div id="color-picker" class="popup-card"></div>
+<div id="tuning-overlay" class="popup-overlay"></div>
+<div id="tuning-panel" class="popup-card"></div>
+<div id="project-overlay" class="popup-overlay"></div>
+<div id="project-menu" class="popup-card"></div>
+<div id="more-overlay" class="popup-overlay"></div>
+<div id="more-menu" class="popup-card"></div>
+
+<script type="module" src="./dist/main.js"></script>
+</body>
+</html>

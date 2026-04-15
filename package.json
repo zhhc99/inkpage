@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=dist/main.js",
+    "dev": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=dist/main.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "eslint": "^10.2.0",
+    "typescript": "^6.0.2"
+  }
+}
