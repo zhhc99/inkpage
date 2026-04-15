@@ -29,7 +29,7 @@ import {
   syncCanvasCursor,
 } from './render';
 import { scheduleAutoSave } from './storage';
-import { closeAllPopups, toggleColorPicker, toggleTuning } from '../ui/popups';
+import { closeAllPopups, toggleColorPicker, toggleSettings } from '../ui/popups';
 import { showToast } from '../ui/toast';
 import { setTool, togglePressureMode, toggleTouchDraw } from '../ui/toolbar';
 
@@ -110,8 +110,8 @@ export function bindInput(): void {
   }, { passive: false });
 
   dom.canvas.addEventListener('pointerdown', e => {
-    if (state.pickerOpen || state.tuningOpen || state.projectOpen) {
-      closeAllPopups();
+    if (state.pickerOpen || state.settingsOpen) {
+      closeAllPopups(false);
       return;
     }
     if (runtime.activePointerId !== null) return;
@@ -377,7 +377,7 @@ export function bindInput(): void {
         y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
       };
     }
-    closeAllPopups();
+    closeAllPopups(false);
   }, { passive: false });
 
   dom.canvas.addEventListener('touchmove', e => {
@@ -443,7 +443,7 @@ export function bindInput(): void {
     if (e.code === 'KeyC' && !e.ctrlKey && !e.metaKey) toggleColorPicker();
     if (e.code === 'KeyT') toggleTouchDraw();
     if (e.code === 'KeyG') togglePressureMode();
-    if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) toggleTuning();
+    if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) toggleSettings();
     if (e.code === 'Escape') closeAllPopups();
   });
 

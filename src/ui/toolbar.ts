@@ -3,23 +3,19 @@ import { dom, runtime, state } from '../state';
 import { clearSelection } from '../model/selection';
 import { clearHistory, redo, undo, updateHistoryButtons } from '../engine/history';
 import { scheduleRender, resetView, syncCanvasCursor } from '../engine/render';
-import { cancelAutoSave } from '../engine/storage';
+import { cancelAutoSave, saveEditorState, scheduleAutoSave } from '../engine/storage';
 import { showToast } from './toast';
 import {
   closeColorPicker,
-  closeProjectMenu,
-  closeTuning,
-  getPopupAnchor,
-  openProjectMenu,
+  closeSettings,
   positionPopup,
   setCloseMoreMenuHook,
   toggleColorPicker,
-  toggleProjectMenu,
-  toggleTuning,
+  toggleSettings,
 } from './popups';
 import { setToolbarHidden } from '../utils/dom';
 
-const OVERFLOW_PRIORITY = [dom.tuningBtn, dom.projectBtn, dom.resetBtn, dom.redoBtn, dom.undoBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
+const OVERFLOW_PRIORITY = [dom.resetBtn, dom.redoBtn, dom.undoBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
 
 const OVERFLOW_ITEMS = [
   { button: dom.touchBtn, icon: 'touch_app', label: 'tool.touch', action: toggleTouchDraw, isActive: () => state.touchDraw },
@@ -27,10 +23,13 @@ const OVERFLOW_ITEMS = [
   { button: dom.zoomLockBtn, icon: 'center_focus_strong', label: 'tool.zoomLock', action: toggleZoomLock, isActive: () => state.zoomLocked },
   { button: dom.undoBtn, icon: 'undo', label: 'tool.undo', action: undo, isDisabled: () => runtime.undoStack.length === 0 },
   { button: dom.redoBtn, icon: 'redo', label: 'tool.redo', action: redo, isDisabled: () => runtime.redoStack.length === 0 },
-  { button: dom.resetBtn, icon: 'delete_sweep', label: 'tool.reset', action: resetCanvas },
-  { button: dom.projectBtn, icon: 'folder', label: 'tool.project', action: toggleProjectMenu },
-  { button: dom.tuningBtn, icon: 'tune', label: 'tool.tuning', action: toggleTuning },
+  { button: dom.resetBtn, icon: 'note_add', label: 'tool.reset', action: resetCanvas },
 ];
+
+function setPressedState(btn: HTMLButtonElement, active: boolean): void {
+  btn.classList.toggle('active', active);
+  btn.setAttribute('aria-pressed', String(active));
+}
 
 export function syncTouchDrawHint(): void {
   dom.touchBtn.classList.toggle('touch-ignored', state.tool === 'select');
@@ -47,11 +46,13 @@ function isToolbarOverflowing(): boolean {
 
 function refreshToolbarDividers(): void {
   const group2Visible = !dom.touchBtn.classList.contains('toolbar-hidden') || !dom.pressureBtn.classList.contains('toolbar-hidden') || !dom.zoomLockBtn.classList.contains('toolbar-hidden');
-  const group3Visible = !dom.undoBtn.classList.contains('toolbar-hidden') || !dom.redoBtn.classList.contains('toolbar-hidden') || !dom.resetBtn.classList.contains('toolbar-hidden') || !dom.projectBtn.classList.contains('toolbar-hidden');
+  const group3Visible = !dom.undoBtn.classList.contains('toolbar-hidden') || !dom.redoBtn.classList.contains('toolbar-hidden') || !dom.resetBtn.classList.contains('toolbar-hidden');
   const moreVisible = !dom.moreBtn.classList.contains('toolbar-hidden');
+  const settingsVisible = !dom.settingsBtn.classList.contains('toolbar-hidden');
   setToolbarHidden(dom.dividerA, false);
-  setToolbarHidden(dom.dividerB, !(group2Visible || group3Visible || moreVisible));
-  setToolbarHidden(dom.dividerC, !(group2Visible && (group3Visible || moreVisible)));
+  setToolbarHidden(dom.dividerB, !(group2Visible || group3Visible || settingsVisible || moreVisible));
+  setToolbarHidden(dom.dividerC, !(group2Visible && (group3Visible || settingsVisible || moreVisible)));
+  setToolbarHidden(dom.dividerD, !(settingsVisible && (group3Visible || moreVisible)));
 }
 
 export function buildMoreMenu(): number {
@@ -61,6 +62,8 @@ export function buildMoreMenu(): number {
     if (!item.button.classList.contains('toolbar-hidden')) continue;
     const btn = document.createElement('button');
     btn.className = 'file-menu-item';
+    btn.type = 'button';
+    btn.setAttribute('role', 'menuitem');
     if (item.isActive?.()) btn.classList.add('active');
     if (item.button === dom.touchBtn && state.tool === 'select') btn.classList.add('subtle');
     btn.disabled = !!item.isDisabled?.();
@@ -97,16 +100,17 @@ export function closeMoreMenu(): void {
   state.moreOpen = false;
   dom.moreOverlay.classList.remove('show');
   dom.moreMenu.classList.remove('show');
+  dom.moreBtn.setAttribute('aria-expanded', 'false');
 }
 
 export function openMoreMenu(): void {
   closeColorPicker();
-  closeTuning();
-  closeProjectMenu();
+  closeSettings();
   updateToolbarOverflow();
   state.moreOpen = true;
   dom.moreOverlay.classList.add('show');
   dom.moreMenu.classList.add('show');
+  dom.moreBtn.setAttribute('aria-expanded', 'true');
   requestAnimationFrame(() => positionPopup(dom.moreMenu, dom.moreBtn));
 }
 
@@ -118,9 +122,9 @@ export function toggleMoreMenu(): void {
 export function setTool(tool: 'ink' | 'eraser' | 'select'): void {
   if (state.tool !== tool && tool !== 'select') clearSelection();
   state.tool = tool;
-  dom.inkBtn.classList.toggle('active', tool === 'ink');
-  dom.eraserBtn.classList.toggle('active', tool === 'eraser');
-  dom.selectBtn.classList.toggle('active', tool === 'select');
+  setPressedState(dom.inkBtn, tool === 'ink');
+  setPressedState(dom.eraserBtn, tool === 'eraser');
+  setPressedState(dom.selectBtn, tool === 'select');
   syncTouchDrawHint();
   if (state.moreOpen) buildMoreMenu();
   scheduleRender();
@@ -129,21 +133,25 @@ export function setTool(tool: 'ink' | 'eraser' | 'select'): void {
 
 export function toggleTouchDraw(): void {
   state.touchDraw = !state.touchDraw;
-  dom.touchBtn.classList.toggle('active', state.touchDraw);
+  setPressedState(dom.touchBtn, state.touchDraw);
   if (state.moreOpen) buildMoreMenu();
+  saveEditorState();
+  scheduleAutoSave();
   showToast(state.touchDraw ? t('touch.on') : t('touch.off'));
 }
 
 export function togglePressureMode(): void {
   state.pressureMode = state.pressureMode === 'simulated' ? 'native' : 'simulated';
-  dom.pressureBtn.classList.toggle('active', state.pressureMode === 'simulated');
+  setPressedState(dom.pressureBtn, state.pressureMode === 'simulated');
   if (state.moreOpen) buildMoreMenu();
+  saveEditorState();
+  scheduleAutoSave();
   showToast(state.pressureMode === 'simulated' ? t('pressure.on') : t('pressure.off'));
 }
 
 export function toggleZoomLock(): void {
   state.zoomLocked = !state.zoomLocked;
-  dom.zoomLockBtn.classList.toggle('active', state.zoomLocked);
+  setPressedState(dom.zoomLockBtn, state.zoomLocked);
   if (state.zoomLocked) {
     const fx = dom.container.clientWidth / 2;
     const fy = dom.container.clientHeight / 2;
@@ -160,7 +168,17 @@ export function toggleZoomLock(): void {
     runtime.zoomFadeTimer = window.setTimeout(() => dom.zoomInd.classList.remove('show'), 1200);
   }
   if (state.moreOpen) buildMoreMenu();
+  saveEditorState();
+  scheduleAutoSave();
   showToast(state.zoomLocked ? t('toast.zoomLock.on') : t('toast.zoomLock.off'));
+}
+
+export function syncToolbarState(): void {
+  setPressedState(dom.touchBtn, state.touchDraw);
+  setPressedState(dom.pressureBtn, state.pressureMode === 'simulated');
+  setPressedState(dom.zoomLockBtn, state.zoomLocked);
+  syncTouchDrawHint();
+  updateHistoryButtons();
 }
 
 export function resetCanvas(): void {
@@ -236,13 +254,9 @@ export function initToolbar(): void {
     createRipple(dom.resetBtn);
     resetCanvas();
   });
-  dom.projectBtn.addEventListener('click', () => {
-    createRipple(dom.projectBtn);
-    toggleProjectMenu();
-  });
-  dom.tuningBtn.addEventListener('click', () => {
-    createRipple(dom.tuningBtn);
-    toggleTuning();
+  dom.settingsBtn.addEventListener('click', () => {
+    createRipple(dom.settingsBtn);
+    toggleSettings();
   });
   dom.moreBtn.addEventListener('click', () => {
     createRipple(dom.moreBtn);
@@ -260,9 +274,20 @@ export function initToolbar(): void {
   dom.moreBtn.title = t('tool.more');
   dom.zoomLockBtn.title = t('tool.zoomLock');
   dom.resetBtn.title = t('tool.reset');
-  dom.projectBtn.title = t('tool.project');
-  dom.tuningBtn.title = t('tool.tuning');
+  dom.settingsBtn.title = t('tool.settings');
+  dom.inkBtn.setAttribute('aria-label', t('tool.ink'));
+  dom.eraserBtn.setAttribute('aria-label', t('tool.eraser'));
+  dom.selectBtn.setAttribute('aria-label', t('tool.select'));
+  dom.colorBtn.setAttribute('aria-label', t('tool.color'));
+  dom.touchBtn.setAttribute('aria-label', t('tool.touch'));
+  dom.pressureBtn.setAttribute('aria-label', t('tool.pressure'));
+  dom.undoBtn.setAttribute('aria-label', t('tool.undo'));
+  dom.redoBtn.setAttribute('aria-label', t('tool.redo'));
+  dom.moreBtn.setAttribute('aria-label', t('tool.more'));
+  dom.zoomLockBtn.setAttribute('aria-label', t('tool.zoomLock'));
+  dom.resetBtn.setAttribute('aria-label', t('tool.reset'));
+  dom.settingsBtn.setAttribute('aria-label', t('tool.settings'));
+  document.getElementById('toolbar')?.setAttribute('aria-label', t('toolbar.label'));
   dom.hint.textContent = t('hint');
-  syncTouchDrawHint();
-  updateHistoryButtons();
+  syncToolbarState();
 }

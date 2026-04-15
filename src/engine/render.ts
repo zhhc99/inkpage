@@ -4,6 +4,10 @@ import { drawSelectionBox, drawSelectionOutline, getSelectedStrokes } from '../m
 import { getStrokeSize, renderStroke } from '../model/stroke';
 import { showToast } from '../ui/toast';
 
+function cssVar(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
 export function getContentBounds(): NonNullable<Stroke['bbox']> {
   let minX = Infinity;
   let minY = Infinity;
@@ -78,7 +82,7 @@ export function createGridPattern(): void {
   pc.height = 24;
   const pctx = pc.getContext('2d');
   if (!pctx) return;
-  pctx.fillStyle = 'rgba(0,0,0,.06)';
+  pctx.fillStyle = cssVar('--grid-dot', 'rgba(0,0,0,.06)');
   pctx.beginPath();
   pctx.arc(12, 12, 0.9, 0, PI * 2);
   pctx.fill();
@@ -206,7 +210,7 @@ export function render(): void {
   const cw = dom.canvas.width / dpr;
   const ch = dom.canvas.height / dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#FFF';
+  ctx.fillStyle = cssVar('--canvas-bg', '#FFF');
   ctx.fillRect(0, 0, cw, ch);
   drawGrid(ctx, cw, ch);
 
@@ -251,8 +255,8 @@ export function render(): void {
     ctx.save();
     ctx.translate(state.panX, state.panY);
     ctx.scale(state.zoom, state.zoom);
-    ctx.strokeStyle = 'rgba(255,255,255,.55)';
-    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.strokeStyle = cssVar('--canvas-overlay-strong', 'rgba(255,255,255,.55)');
+    ctx.fillStyle = cssVar('--canvas-overlay-strong', 'rgba(255,255,255,.55)');
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     for (const id of runtime.pendingErasure) {
@@ -279,7 +283,7 @@ export function render(): void {
     ctx.save();
     ctx.translate(state.panX, state.panY);
     ctx.scale(state.zoom, state.zoom);
-    ctx.strokeStyle = 'rgba(0,0,0,.25)';
+    ctx.strokeStyle = cssVar('--canvas-overlay-muted', 'rgba(0,0,0,.25)');
     ctx.lineWidth = 1.5 / state.zoom;
     ctx.beginPath();
     ctx.arc(point.x, point.y, CONFIG.eraserSize / 2, 0, PI * 2);

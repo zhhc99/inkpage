@@ -8,6 +8,8 @@ import { scheduleRender } from './render';
 export function updateHistoryButtons(): void {
   dom.undoBtn.disabled = runtime.undoStack.length === 0;
   dom.redoBtn.disabled = runtime.redoStack.length === 0;
+  dom.undoBtn.setAttribute('aria-disabled', String(dom.undoBtn.disabled));
+  dom.redoBtn.setAttribute('aria-disabled', String(dom.redoBtn.disabled));
 }
 
 export function clearHistory(): void {

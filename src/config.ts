@@ -2,6 +2,9 @@ import { clamp } from './utils/geometry';
 
 export const LANG = /^zh/i.test(navigator.language) ? 'zh' : 'en';
 
+export type ThemeBaseName = 'iris' | 'sage' | 'lake' | 'porcelain';
+export type ThemeName = ThemeBaseName | 'iris-dark' | 'sage-dark' | 'lake-dark' | 'porcelain-dark';
+
 export const STRINGS = {
   zh: {
     'tool.ink': '墨迹 (P)',
@@ -11,12 +14,18 @@ export const STRINGS = {
     'tool.touch': '触摸墨迹 (T)',
     'tool.pressure': '模拟压感 (G)',
     'tool.zoomLock': '统一缩放',
-    'tool.reset': '重置画布',
+    'tool.reset': '新建画布',
+    'tool.settings': '设置 (S)',
     'tool.undo': '撤销 (Ctrl+Z)',
     'tool.redo': '重做 (Ctrl+Shift+Z)',
     'tool.more': '更多操作',
     'tool.project': '项目',
-    'tool.tuning': '墨迹微调 (S)',
+    'tool.tuning': '墨迹微调',
+    'tool.theme': '界面主题',
+    'theme.group.light': '浅色',
+    'theme.group.dark': '深色',
+    'theme.mode': '外观',
+    'toolbar.label': '工具栏',
     hint: '在此处书写或涂画',
     'touch.on': '触摸墨迹已开启',
     'touch.off': '触摸墨迹已关闭',
@@ -31,7 +40,8 @@ export const STRINGS = {
     'toast.zoomLock.on': '统一缩放已开启',
     'toast.zoomLock.off': '统一缩放已关闭',
     'toast.zoomLock.blocked': '当前为统一缩放',
-    'confirm.reset': '重置画布将清除所有内容, 确定吗?',
+    'toast.theme': '界面主题已切换为 {name}',
+    'confirm.reset': '新建画布后, 未保存内容将丢失. 确定吗?',
     'file.save': '保存项目',
     'file.load': '读取项目',
     'file.export': '导出图片',
@@ -44,6 +54,12 @@ export const STRINGS = {
     'set.sensitivity': '敏感度',
     'cap.round': '圆润',
     'cap.pointed': '尖锐',
+    'theme.iris': '鸢尾',
+    'theme.sage': '鼠尾草',
+    'theme.lake': '湖蓝',
+    'theme.porcelain': '瓷白',
+    settings: '设置',
+    close: '关闭',
   },
   en: {
     'tool.ink': 'Ink (P)',
@@ -53,12 +69,18 @@ export const STRINGS = {
     'tool.touch': 'Touch Ink (T)',
     'tool.pressure': 'Simulated Pressure (G)',
     'tool.zoomLock': 'Unified Zoom',
-    'tool.reset': 'Reset Canvas',
+    'tool.reset': 'New Canvas',
+    'tool.settings': 'Settings (S)',
     'tool.undo': 'Undo (Ctrl+Z)',
     'tool.redo': 'Redo (Ctrl+Shift+Z)',
     'tool.more': 'More Actions',
     'tool.project': 'Project',
-    'tool.tuning': 'Stroke Tuning (S)',
+    'tool.tuning': 'Stroke Tuning',
+    'tool.theme': 'Theme',
+    'theme.group.light': 'Light',
+    'theme.group.dark': 'Dark',
+    'theme.mode': 'Appearance',
+    'toolbar.label': 'Toolbar',
     hint: 'Write or draw here',
     'touch.on': 'Touch ink enabled',
     'touch.off': 'Touch ink disabled',
@@ -73,7 +95,8 @@ export const STRINGS = {
     'toast.zoomLock.on': 'Unified zoom enabled',
     'toast.zoomLock.off': 'Unified zoom disabled',
     'toast.zoomLock.blocked': 'Unified zoom is active',
-    'confirm.reset': 'Reset canvas will clear all content. Continue?',
+    'toast.theme': 'Theme changed to {name}',
+    'confirm.reset': 'Creating a new canvas will discard unsaved content. Continue?',
     'file.save': 'Save Project',
     'file.load': 'Load Project',
     'file.export': 'Export Image',
@@ -86,6 +109,12 @@ export const STRINGS = {
     'set.sensitivity': 'Sensitivity',
     'cap.round': 'Round',
     'cap.pointed': 'Pointed',
+    'theme.iris': 'Iris',
+    'theme.sage': 'Sage',
+    'theme.lake': 'Lake',
+    'theme.porcelain': 'Porcelain',
+    settings: 'Settings',
+    close: 'Close',
   },
 } as const;
 
@@ -102,10 +131,50 @@ export const INDEX_CELL_SIZE = 256;
 export const SELECT_HIT_RADIUS = 10;
 export const SAVE_VERSION = 4;
 export const AUTOSAVE_KEY = 'inkpage_autosave';
+export const THEME_KEY = 'inkpage_theme';
+export const EDITOR_STATE_KEY = 'inkpage_editor_state';
 export const COLORS = ['#1D1B20', '#4A6B7C', '#955050', '#B07848', '#4E7A5C', '#6E5B7D'];
+export const SPECIAL_INK_LIGHT = COLORS[0];
+export const SPECIAL_INK_DARK = '#E9E1D6';
 export const PI = Math.PI;
 export const FIXED_THINNING = 0.5;
 export const RATE_OF_PRESSURE_CHANGE = 0.275;
+
+export const THEME_PRESETS: Array<{ id: ThemeName; swatch: string; dark?: boolean }> = [
+  { id: 'iris', swatch: '#6750A4' },
+  { id: 'sage', swatch: '#5F6E52' },
+  { id: 'lake', swatch: '#2F628B' },
+  { id: 'porcelain', swatch: '#7A6758' },
+  { id: 'iris-dark', swatch: '#4D3E77', dark: true },
+  { id: 'sage-dark', swatch: '#445137', dark: true },
+  { id: 'lake-dark', swatch: '#1E4A6C', dark: true },
+  { id: 'porcelain-dark', swatch: '#5B4233', dark: true },
+];
+
+export function isDarkTheme(theme: ThemeName): boolean {
+  return !!THEME_PRESETS.find(preset => preset.id === theme)?.dark;
+}
+
+export function getThemeBase(theme: ThemeName): ThemeBaseName {
+  return theme.replace('-dark', '') as ThemeBaseName;
+}
+
+export function resolveTheme(base: ThemeBaseName, dark: boolean): ThemeName {
+  return (dark ? `${base}-dark` : base) as ThemeName;
+}
+
+export function isSpecialInkColor(color: string): boolean {
+  const upper = color.toUpperCase();
+  return upper === SPECIAL_INK_LIGHT || upper === SPECIAL_INK_DARK;
+}
+
+export function getThemeSpecialInk(theme: ThemeName): string {
+  return isDarkTheme(theme) ? SPECIAL_INK_DARK : SPECIAL_INK_LIGHT;
+}
+
+export function normalizeSpecialInkForTheme(color: string, theme: ThemeName): string {
+  return isSpecialInkColor(color) ? getThemeSpecialInk(theme) : color;
+}
 
 export const CONFIG = {
   size: DEFAULT_SIZE,

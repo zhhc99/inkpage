@@ -1,13 +1,33 @@
-import { AUTOSAVE_KEY, SAVE_VERSION, t, tf } from '../config';
+import { AUTOSAVE_KEY, EDITOR_STATE_KEY, SAVE_VERSION, normalizeSpecialInkForTheme, t, tf } from '../config';
 import { dom, runtime, state } from '../state';
 import { rebuildStrokeIndex, clearSelection } from '../model/selection';
 import { applyPublicConfig, getPublicConfig, hydrateStroke, renderStroke, serializeProjectData as serializeProjectBase } from '../model/stroke';
 import { clearHistory } from './history';
 import { getContentBounds, resetView, scheduleRender } from './render';
 import { showToast } from '../ui/toast';
-import { buildTuning } from '../ui/popups';
 
 let fileInput: HTMLInputElement | null = null;
+
+export function saveEditorState(): void {
+  try {
+    localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify({
+      touchDraw: state.touchDraw,
+      pressureMode: state.pressureMode,
+      zoomLocked: state.zoomLocked,
+    }));
+  } catch {}
+}
+
+export function restoreEditorState(): void {
+  try {
+    const raw = localStorage.getItem(EDITOR_STATE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    state.touchDraw = !!data.touchDraw;
+    state.pressureMode = data.pressureMode === 'simulated' ? 'simulated' : 'native';
+    state.zoomLocked = !!data.zoomLocked;
+  } catch {}
+}
 
 export function serializeProjectData(includeView: boolean): Record<string, unknown> {
   return serializeProjectBase(
@@ -78,8 +98,9 @@ export function autoLoad(): boolean {
       state.pressureMode = data.view.pressureMode === 'simulated' ? 'simulated' : 'native';
       state.touchDraw = !!data.view.touchDraw;
     }
-    if (data.color) state.color = data.color;
+    if (data.color) state.color = normalizeSpecialInkForTheme(data.color, state.theme);
     runtime.strokes = data.strokes.map(hydrateStroke);
+    for (const stroke of runtime.strokes) stroke.color = normalizeSpecialInkForTheme(stroke.color, state.theme);
     runtime.nextStrokeId = runtime.strokes.reduce((max: number, stroke: any) => Math.max(max, stroke.id), 0) + 1;
     rebuildStrokeIndex();
     return true;
@@ -127,13 +148,13 @@ function handleFileLoaded(text: string): void {
     runtime.pendingErasure.clear();
     if (data.config) applyPublicConfig(data.config);
     runtime.strokes = (data.strokes || []).map(hydrateStroke);
+    for (const stroke of runtime.strokes) stroke.color = normalizeSpecialInkForTheme(stroke.color, state.theme);
     clearSelection();
     rebuildStrokeIndex();
     runtime.nextStrokeId = runtime.strokes.reduce((max: number, stroke: any) => Math.max(max, stroke.id), 0) + 1;
     runtime.hasDrawn = runtime.strokes.length > 0;
     dom.hint.classList.toggle('hidden', runtime.hasDrawn);
     clearHistory();
-    buildTuning();
     runtime.committedDirty = true;
     scheduleRender();
     scheduleAutoSave();
@@ -180,7 +201,7 @@ export function exportPNG(): void {
   tmp.width = width;
   tmp.height = height;
   const tc = tmp.getContext('2d')!;
-  tc.fillStyle = '#FFF';
+  tc.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--canvas-bg').trim() || '#FFF';
   tc.fillRect(0, 0, width, height);
   tc.save();
   tc.translate(-ox, -oy);

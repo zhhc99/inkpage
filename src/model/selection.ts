@@ -3,6 +3,10 @@ import { runtime, state, type BoxSelection, type MovingSelection, type PointTupl
 import { ptSegDistSq } from '../utils/geometry';
 import { prepareStroke, computeBBox, clonePoints, getStrokeSize } from './stroke';
 
+function cssVar(name: string, fallback: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
 export function getQueryStrokes(minX: number, minY: number, maxX: number, maxY: number): Stroke[] {
   const ids = queryStrokeIds(minX, minY, maxX, maxY);
   if (!ids.size) return [];
@@ -246,7 +250,7 @@ export function drawSelectionOutline(targetCtx: CanvasRenderingContext2D, stroke
   const width = stroke.bbox.maxX - stroke.bbox.minX + pad * 2;
   const height = stroke.bbox.maxY - stroke.bbox.minY + pad * 2;
   targetCtx.save();
-  targetCtx.strokeStyle = '#6750A4';
+  targetCtx.strokeStyle = cssVar('--selection-stroke', '#6750A4');
   targetCtx.lineWidth = 1.25 / state.zoom;
   targetCtx.setLineDash([7 / state.zoom, 5 / state.zoom]);
   targetCtx.strokeRect(stroke.bbox.minX - pad, stroke.bbox.minY - pad, width, height);
@@ -256,8 +260,8 @@ export function drawSelectionOutline(targetCtx: CanvasRenderingContext2D, stroke
 export function drawSelectionBox(targetCtx: CanvasRenderingContext2D, box: BoxSelection): void {
   const rect = getSelectionRect(box.startX, box.startY, box.currentX, box.currentY);
   targetCtx.save();
-  targetCtx.fillStyle = 'rgba(103,80,164,.10)';
-  targetCtx.strokeStyle = '#6750A4';
+  targetCtx.fillStyle = cssVar('--selection-fill', 'rgba(103,80,164,.10)');
+  targetCtx.strokeStyle = cssVar('--selection-stroke', '#6750A4');
   targetCtx.lineWidth = 1.25 / state.zoom;
   targetCtx.setLineDash([6 / state.zoom, 4 / state.zoom]);
   targetCtx.fillRect(rect.minX, rect.minY, rect.maxX - rect.minX, rect.maxY - rect.minY);

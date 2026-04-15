@@ -1,5 +1,7 @@
 import { mustGetById } from './utils/dom';
 
+import type { ThemeName } from './config';
+
 export type Tool = 'ink' | 'eraser' | 'select';
 export type PressureMode = 'native' | 'simulated';
 export type LineCap = 'round' | 'pointed';
@@ -96,9 +98,9 @@ export const state = {
   zoomLocked: false,
   drawing: false,
   pickerOpen: false,
-  tuningOpen: false,
-  projectOpen: false,
   moreOpen: false,
+  settingsOpen: false,
+  theme: 'iris' as ThemeName,
 };
 
 export const runtime = {
@@ -157,19 +159,17 @@ export const dom = {
   resetBtn: mustGetById<HTMLButtonElement>('reset-btn'),
   undoBtn: mustGetById<HTMLButtonElement>('undo-btn'),
   redoBtn: mustGetById<HTMLButtonElement>('redo-btn'),
-  projectBtn: mustGetById<HTMLButtonElement>('project-btn'),
-  tuningBtn: mustGetById<HTMLButtonElement>('tuning-btn'),
+  settingsBtn: mustGetById<HTMLButtonElement>('settings-btn'),
   moreBtn: mustGetById<HTMLButtonElement>('more-btn'),
   dividerA: mustGetById<HTMLDivElement>('divider-a'),
   dividerB: mustGetById<HTMLDivElement>('divider-b'),
   dividerC: mustGetById<HTMLDivElement>('divider-c'),
+  dividerD: mustGetById<HTMLDivElement>('divider-d'),
   colorDot: mustGetById<HTMLDivElement>('color-dot'),
   colorPickerOverlay: mustGetById<HTMLDivElement>('color-picker-overlay'),
   colorPicker: mustGetById<HTMLDivElement>('color-picker'),
-  tuningOverlay: mustGetById<HTMLDivElement>('tuning-overlay'),
-  tuningPanel: mustGetById<HTMLDivElement>('tuning-panel'),
-  projectOverlay: mustGetById<HTMLDivElement>('project-overlay'),
-  projectMenu: mustGetById<HTMLDivElement>('project-menu'),
+  settingsOverlay: mustGetById<HTMLDivElement>('settings-overlay'),
+  settingsPanel: mustGetById<HTMLDivElement>('settings-panel'),
   moreOverlay: mustGetById<HTMLDivElement>('more-overlay'),
   moreMenu: mustGetById<HTMLDivElement>('more-menu'),
 };
