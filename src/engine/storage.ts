@@ -1,20 +1,36 @@
-import { AUTOSAVE_KEY, EDITOR_STATE_KEY, SAVE_VERSION, normalizeSpecialInkForTheme, t, tf } from '../config';
+import { CANVAS_STATE_KEY, EDITOR_STATE_KEY, normalizeSpecialInkForTheme, t, tf } from '../config';
 import { dom, runtime, state } from '../state';
 import { rebuildStrokeIndex, clearSelection } from '../model/selection';
-import { applyPublicConfig, getPublicConfig, hydrateStroke, renderStroke, serializeProjectData as serializeProjectBase } from '../model/stroke';
+import { applyPublicConfig, getPublicConfig, hydrateStroke, renderStroke, serializeCanvasData } from '../model/stroke';
 import { clearHistory } from './history';
-import { getContentBounds, resetView, scheduleRender } from './render';
+import { getContentBounds, scheduleRender } from './render';
 import { showToast } from '../ui/toast';
 
 let fileInput: HTMLInputElement | null = null;
 
+function getEditorData(): Record<string, unknown> {
+  return {
+    theme: state.theme,
+    config: getPublicConfig(),
+    color: state.color,
+    touchDraw: state.touchDraw,
+    pressureMode: state.pressureMode,
+    zoomLocked: state.zoomLocked,
+  };
+}
+
+function applyEditorData(data: any): void {
+  if (typeof data.theme === 'string') state.theme = data.theme;
+  applyPublicConfig(data.config);
+  state.color = normalizeSpecialInkForTheme(data.color, state.theme);
+  state.touchDraw = !!data.touchDraw;
+  state.pressureMode = data.pressureMode === 'simulated' ? 'simulated' : 'native';
+  state.zoomLocked = !!data.zoomLocked;
+}
+
 export function saveEditorState(): void {
   try {
-    localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify({
-      touchDraw: state.touchDraw,
-      pressureMode: state.pressureMode,
-      zoomLocked: state.zoomLocked,
-    }));
+    localStorage.setItem(EDITOR_STATE_KEY, JSON.stringify(getEditorData()));
   } catch {}
 }
 
@@ -22,27 +38,38 @@ export function restoreEditorState(): void {
   try {
     const raw = localStorage.getItem(EDITOR_STATE_KEY);
     if (!raw) return;
-    const data = JSON.parse(raw);
-    state.touchDraw = !!data.touchDraw;
-    state.pressureMode = data.pressureMode === 'simulated' ? 'simulated' : 'native';
-    state.zoomLocked = !!data.zoomLocked;
+    applyEditorData(JSON.parse(raw));
   } catch {}
 }
 
-export function serializeProjectData(includeView: boolean): Record<string, unknown> {
-  return serializeProjectBase(
+function getCanvasData(): Record<string, unknown> {
+  return serializeCanvasData(
     runtime.strokes,
     {
       zoom: state.zoom,
       panX: state.panX,
       panY: state.panY,
-      zoomLocked: state.zoomLocked,
-      pressureMode: state.pressureMode,
-      touchDraw: state.touchDraw,
     },
-    state.color,
-    includeView,
   );
+}
+
+function applyCanvasData(data: any): void {
+  runtime.currentStroke = null;
+  state.drawing = false;
+  runtime.eraserPoints = [];
+  runtime.pendingErasure.clear();
+  clearSelection();
+  clearHistory();
+  runtime.strokes = data.strokes.map(hydrateStroke);
+  for (const stroke of runtime.strokes) stroke.color = normalizeSpecialInkForTheme(stroke.color, state.theme);
+  runtime.nextStrokeId = runtime.strokes.reduce((max: number, stroke: any) => Math.max(max, stroke.id), 0) + 1;
+  rebuildStrokeIndex();
+  state.zoom = data.view.zoom;
+  state.panX = data.view.panX;
+  state.panY = data.view.panY;
+  runtime.hasDrawn = runtime.strokes.length > 0;
+  dom.hint.classList.toggle('hidden', runtime.hasDrawn);
+  runtime.committedDirty = true;
 }
 
 export function cancelAutoSave(): void {
@@ -62,7 +89,7 @@ export function cancelAutoSave(): void {
 
 export function autoSave(): void {
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeProjectData(true)));
+    localStorage.setItem(CANVAS_STATE_KEY, JSON.stringify(getCanvasData()));
   } catch {}
 }
 
@@ -85,24 +112,9 @@ export function scheduleAutoSave(): void {
 
 export function autoLoad(): boolean {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
+    const raw = localStorage.getItem(CANVAS_STATE_KEY);
     if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (!data.strokes?.length) return false;
-    if (data.config) applyPublicConfig(data.config);
-    if (data.view) {
-      state.zoom = Number.isFinite(data.view.zoom) ? data.view.zoom : 1;
-      state.panX = Number.isFinite(data.view.panX) ? data.view.panX : 0;
-      state.panY = Number.isFinite(data.view.panY) ? data.view.panY : 0;
-      state.zoomLocked = !!data.view.zoomLocked;
-      state.pressureMode = data.view.pressureMode === 'simulated' ? 'simulated' : 'native';
-      state.touchDraw = !!data.view.touchDraw;
-    }
-    if (data.color) state.color = normalizeSpecialInkForTheme(data.color, state.theme);
-    runtime.strokes = data.strokes.map(hydrateStroke);
-    for (const stroke of runtime.strokes) stroke.color = normalizeSpecialInkForTheme(stroke.color, state.theme);
-    runtime.nextStrokeId = runtime.strokes.reduce((max: number, stroke: any) => Math.max(max, stroke.id), 0) + 1;
-    rebuildStrokeIndex();
+    applyCanvasData(JSON.parse(raw));
     return true;
   } catch {
     return false;
@@ -110,7 +122,7 @@ export function autoLoad(): boolean {
 }
 
 export async function saveProject(): Promise<void> {
-  const json = JSON.stringify(serializeProjectData(false));
+  const json = JSON.stringify(getCanvasData());
   if ('showSaveFilePicker' in window) {
     try {
       const handle = await (window as any).showSaveFilePicker({
@@ -122,7 +134,7 @@ export async function saveProject(): Promise<void> {
       await writable.close();
       showToast(t('toast.saved'));
     } catch (error: any) {
-      if (error?.name !== 'AbortError') showToast(t('toast.saved'));
+      if (error?.name !== 'AbortError') showToast(t('toast.save.error'));
     }
     return;
   }
@@ -141,21 +153,7 @@ export async function saveProject(): Promise<void> {
 
 function handleFileLoaded(text: string): void {
   try {
-    const data = JSON.parse(text);
-    runtime.currentStroke = null;
-    state.drawing = false;
-    runtime.eraserPoints = [];
-    runtime.pendingErasure.clear();
-    if (data.config) applyPublicConfig(data.config);
-    runtime.strokes = (data.strokes || []).map(hydrateStroke);
-    for (const stroke of runtime.strokes) stroke.color = normalizeSpecialInkForTheme(stroke.color, state.theme);
-    clearSelection();
-    rebuildStrokeIndex();
-    runtime.nextStrokeId = runtime.strokes.reduce((max: number, stroke: any) => Math.max(max, stroke.id), 0) + 1;
-    runtime.hasDrawn = runtime.strokes.length > 0;
-    dom.hint.classList.toggle('hidden', runtime.hasDrawn);
-    clearHistory();
-    runtime.committedDirty = true;
+    applyCanvasData(JSON.parse(text));
     scheduleRender();
     scheduleAutoSave();
     showToast(tf('toast.loaded', { n: runtime.strokes.length }));

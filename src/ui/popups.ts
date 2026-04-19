@@ -1,7 +1,6 @@
 import {
   COLORS,
   CONFIG,
-  THEME_KEY,
   THEME_PRESETS,
   getThemeBase,
   getThemeSpecialInk,
@@ -15,7 +14,7 @@ import {
   type ThemeName,
 } from '../config';
 import { dom, runtime, state } from '../state';
-import { saveProject, loadProject, exportPNG, scheduleAutoSave } from '../engine/storage';
+import { saveEditorState, saveProject, loadProject, exportPNG } from '../engine/storage';
 import { createGridPattern, scheduleRender } from '../engine/render';
 import { showToast } from './toast';
 
@@ -114,11 +113,6 @@ function applyThemeToInk(theme: ThemeName): void {
 }
 
 export function initTheme(): void {
-  try {
-    const stored = localStorage.getItem(THEME_KEY);
-    const normalized = stored === 'graphite' ? 'iris-dark' : stored;
-    if (THEME_PRESETS.some(preset => preset.id === normalized)) state.theme = normalized as ThemeName;
-  } catch {}
   state.color = normalizeSpecialInkForTheme(state.color, state.theme);
   document.documentElement.dataset.theme = state.theme;
 }
@@ -127,10 +121,8 @@ export function setTheme(theme: ThemeName, silent = false): void {
   if (state.theme === theme && !silent) return;
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
-  try {
-    localStorage.setItem(THEME_KEY, theme);
-  } catch {}
   applyThemeToInk(theme);
+  saveEditorState();
   createGridPattern();
   refreshThemeInkUI();
   if (state.settingsOpen) syncThemeControls();
@@ -219,6 +211,7 @@ export function toggleColorPicker(): void {
 
 export function setColor(color: string): void {
   state.color = color;
+  saveEditorState();
   syncColorDot();
   dom.colorPicker.querySelectorAll('.color-swatch').forEach(node => {
     const el = node as HTMLButtonElement;
@@ -366,7 +359,7 @@ function appendTuningSection(parent: HTMLElement): void {
               node.classList.toggle('active', active);
               node.setAttribute('aria-pressed', String(active));
             });
-            if (runtime.strokes.length) scheduleAutoSave();
+            saveEditorState();
           });
           control.appendChild(button);
         }
@@ -389,7 +382,7 @@ function appendTuningSection(parent: HTMLElement): void {
         input.addEventListener('input', () => {
           CONFIG[param.key] = parseFloat(input.value);
           value.textContent = param.fmt(CONFIG[param.key]);
-          if (runtime.strokes.length) scheduleAutoSave();
+          saveEditorState();
         });
         const body = document.createElement('div');
         body.className = 'settings-row-body';

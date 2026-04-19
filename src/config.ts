@@ -34,6 +34,7 @@ export const STRINGS = {
     'pressure.off': '模拟压感已关闭',
     'toast.erased': '已擦除 {n} 条笔画',
     'toast.saved': '项目已保存',
+    'toast.save.error': '保存失败',
     'toast.loaded': '项目已加载 ({n} 条笔画)',
     'toast.load.error': '读取失败: 文件格式错误',
     'toast.exported': '图片已导出',
@@ -92,6 +93,7 @@ export const STRINGS = {
     'pressure.off': 'Simulated pressure disabled',
     'toast.erased': 'Erased {n} stroke(s)',
     'toast.saved': 'Project saved',
+    'toast.save.error': 'Save failed',
     'toast.loaded': 'Project loaded ({n} stroke(s))',
     'toast.load.error': 'Load failed: invalid file format',
     'toast.exported': 'Image exported',
@@ -136,8 +138,7 @@ export const HISTORY_LIMIT = 500;
 export const INDEX_CELL_SIZE = 256;
 export const SELECT_HIT_RADIUS = 10;
 export const SAVE_VERSION = 4;
-export const AUTOSAVE_KEY = 'inkpage_autosave';
-export const THEME_KEY = 'inkpage_theme';
+export const CANVAS_STATE_KEY = 'inkpage_canvas_state';
 export const EDITOR_STATE_KEY = 'inkpage_editor_state';
 export const COLORS = ['#1D1B20', '#4A6B7C', '#955050', '#B07848', '#4E7A5C', '#6E5B7D'];
 export const SPECIAL_INK_LIGHT = COLORS[0];

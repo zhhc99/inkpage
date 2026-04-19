@@ -157,7 +157,7 @@ export const dom = {
   pressureBtn: mustGetById<HTMLButtonElement>('pressure-btn'),
   zoomLockBtn: mustGetById<HTMLButtonElement>('zoom-lock-btn'),
   fullscreenBtn: mustGetById<HTMLButtonElement>('fullscreen-btn'),
-  resetBtn: mustGetById<HTMLButtonElement>('reset-btn'),
+  newCanvasBtn: mustGetById<HTMLButtonElement>('reset-btn'),
   undoBtn: mustGetById<HTMLButtonElement>('undo-btn'),
   redoBtn: mustGetById<HTMLButtonElement>('redo-btn'),
   settingsBtn: mustGetById<HTMLButtonElement>('settings-btn'),

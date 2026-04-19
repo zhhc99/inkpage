@@ -1,5 +1,5 @@
 import { dom } from './state';
-import { createGridPattern, resetView, resizeCanvas, scheduleRender } from './engine/render';
+import { createGridPattern, resetView, resizeCanvas } from './engine/render';
 import { autoLoad, ensureFileInput, restoreEditorState } from './engine/storage';
 import { bindInput } from './engine/input';
 import { bindPopupOverlays, buildSettingsPanel, initTheme, positionPopup, refreshThemeInkUI } from './ui/popups';
@@ -19,27 +19,19 @@ function init(): void {
   restoreEditorState();
   initTheme();
   createGridPattern();
-  refreshThemeInkUI();
-  buildSettingsPanel();
   bindPopupOverlays();
   initToolbar();
   bindInput();
   bindResize();
   ensureFileInput();
-  const restored = autoLoad();
+  autoLoad();
+  buildSettingsPanel();
   syncToolbarState();
   refreshThemeInkUI();
   resizeCanvas();
   updateToolbarOverflow();
-  if (!restored) {
-    resetView();
-  } else {
-    buildSettingsPanel();
-    runtime.hasDrawn = true;
-    dom.hint.classList.add('hidden');
-    runtime.committedDirty = true;
-    scheduleRender();
-  }
+  if (!runtime.hasDrawn) resetView();
+  document.body.classList.remove('app-loading');
   setTool('ink');
 }
 

@@ -352,29 +352,19 @@ export function serializeStroke(stroke: Stroke): Record<string, unknown> {
   };
 }
 
-export function serializeProjectData(
+export function serializeCanvasData(
   strokes: Stroke[],
   view: {
     zoom: number;
     panX: number;
     panY: number;
-    zoomLocked: boolean;
-    pressureMode: PressureMode;
-    touchDraw: boolean;
   },
-  color: string,
-  includeView: boolean,
 ): Record<string, unknown> {
-  const data: Record<string, unknown> = {
+  return {
     version: SAVE_VERSION,
-    config: getPublicConfig(),
     strokes: strokes.map(serializeStroke),
+    view,
   };
-  if (includeView) {
-    data.view = view;
-    data.color = color;
-  }
-  return data;
 }
 
 export function hydrateStroke(raw: any): Stroke {

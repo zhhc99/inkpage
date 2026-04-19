@@ -123,6 +123,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;font-family:'Roboto',sans-serif;
   -webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+body.app-loading #app{visibility:hidden}
 button,input{font:inherit}
 button:focus-visible,input:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
 
@@ -321,7 +322,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--focus-ring);out
 #toast.show{opacity:1}
 </style>
 </head>
-<body>
+<body class="app-loading">
 <div id="app">
   <nav id="toolbar" role="toolbar" aria-label="Toolbar">
     <button class="tool-btn active" id="ink-btn" type="button"><span class="material-symbols-rounded">edit</span></button>

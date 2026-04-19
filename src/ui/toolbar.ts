@@ -1,4 +1,4 @@
-import { t } from '../config';
+import { CANVAS_STATE_KEY, t } from '../config';
 import { dom, runtime, state } from '../state';
 import { clearSelection } from '../model/selection';
 import { clearHistory, redo, undo, updateHistoryButtons } from '../engine/history';
@@ -15,7 +15,7 @@ import {
 } from './popups';
 import { setToolbarHidden } from '../utils/dom';
 
-const OVERFLOW_PRIORITY = [dom.resetBtn, dom.redoBtn, dom.undoBtn, dom.fullscreenBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
+const OVERFLOW_PRIORITY = [dom.newCanvasBtn, dom.redoBtn, dom.undoBtn, dom.fullscreenBtn, dom.zoomLockBtn, dom.pressureBtn, dom.touchBtn];
 
 const OVERFLOW_ITEMS = [
   { button: dom.touchBtn, icon: 'touch_app', label: 'tool.touch', action: toggleTouchDraw, isActive: () => state.touchDraw },
@@ -24,7 +24,7 @@ const OVERFLOW_ITEMS = [
   { button: dom.fullscreenBtn, icon: 'fullscreen', label: 'tool.fullscreen', action: toggleFullscreen, isActive: () => !!document.fullscreenElement, isAvailable: isFullscreenSupported },
   { button: dom.undoBtn, icon: 'undo', label: 'tool.undo', action: undo, isDisabled: () => runtime.undoStack.length === 0 },
   { button: dom.redoBtn, icon: 'redo', label: 'tool.redo', action: redo, isDisabled: () => runtime.redoStack.length === 0 },
-  { button: dom.resetBtn, icon: 'note_add', label: 'tool.reset', action: resetCanvas },
+  { button: dom.newCanvasBtn, icon: 'note_add', label: 'tool.reset', action: newCanvas },
 ];
 
 function setPressedState(btn: HTMLButtonElement, active: boolean): void {
@@ -47,7 +47,7 @@ function isToolbarOverflowing(): boolean {
 
 function refreshToolbarDividers(): void {
   const group2Visible = !dom.touchBtn.classList.contains('toolbar-hidden') || !dom.pressureBtn.classList.contains('toolbar-hidden') || !dom.zoomLockBtn.classList.contains('toolbar-hidden') || !dom.fullscreenBtn.classList.contains('toolbar-hidden');
-  const group3Visible = !dom.undoBtn.classList.contains('toolbar-hidden') || !dom.redoBtn.classList.contains('toolbar-hidden') || !dom.resetBtn.classList.contains('toolbar-hidden');
+  const group3Visible = !dom.undoBtn.classList.contains('toolbar-hidden') || !dom.redoBtn.classList.contains('toolbar-hidden') || !dom.newCanvasBtn.classList.contains('toolbar-hidden');
   const moreVisible = !dom.moreBtn.classList.contains('toolbar-hidden');
   const settingsVisible = !dom.settingsBtn.classList.contains('toolbar-hidden');
   setToolbarHidden(dom.dividerA, false);
@@ -139,7 +139,6 @@ export function toggleTouchDraw(): void {
   setPressedState(dom.touchBtn, state.touchDraw);
   if (state.moreOpen) buildMoreMenu();
   saveEditorState();
-  scheduleAutoSave();
   showToast(state.touchDraw ? t('touch.on') : t('touch.off'));
 }
 
@@ -148,7 +147,6 @@ export function togglePressureMode(): void {
   setPressedState(dom.pressureBtn, state.pressureMode === 'simulated');
   if (state.moreOpen) buildMoreMenu();
   saveEditorState();
-  scheduleAutoSave();
   showToast(state.pressureMode === 'simulated' ? t('pressure.on') : t('pressure.off'));
 }
 
@@ -207,7 +205,7 @@ export function syncToolbarState(): void {
   updateHistoryButtons();
 }
 
-export function resetCanvas(): void {
+export function newCanvas(): void {
   if (runtime.strokes.length > 0 && !confirm(t('confirm.reset'))) return;
   runtime.strokes = [];
   runtime.nextStrokeId = 1;
@@ -221,7 +219,7 @@ export function resetCanvas(): void {
   clearHistory();
   cancelAutoSave();
   try {
-    localStorage.removeItem('inkpage_autosave');
+    localStorage.removeItem(CANVAS_STATE_KEY);
   } catch {}
   resetView();
   showToast(t('toast.cleared'));
@@ -280,9 +278,9 @@ export function initToolbar(): void {
     createRipple(dom.redoBtn);
     redo();
   });
-  dom.resetBtn.addEventListener('click', () => {
-    createRipple(dom.resetBtn);
-    resetCanvas();
+  dom.newCanvasBtn.addEventListener('click', () => {
+    createRipple(dom.newCanvasBtn);
+    newCanvas();
   });
   dom.settingsBtn.addEventListener('click', () => {
     createRipple(dom.settingsBtn);
@@ -309,7 +307,7 @@ export function initToolbar(): void {
   dom.redoBtn.title = t('tool.redo');
   dom.moreBtn.title = t('tool.more');
   dom.zoomLockBtn.title = t('tool.zoomLock');
-  dom.resetBtn.title = t('tool.reset');
+  dom.newCanvasBtn.title = t('tool.reset');
   dom.settingsBtn.title = t('tool.settings');
   dom.inkBtn.setAttribute('aria-label', t('tool.ink'));
   dom.eraserBtn.setAttribute('aria-label', t('tool.eraser'));
@@ -322,7 +320,7 @@ export function initToolbar(): void {
   dom.redoBtn.setAttribute('aria-label', t('tool.redo'));
   dom.moreBtn.setAttribute('aria-label', t('tool.more'));
   dom.zoomLockBtn.setAttribute('aria-label', t('tool.zoomLock'));
-  dom.resetBtn.setAttribute('aria-label', t('tool.reset'));
+  dom.newCanvasBtn.setAttribute('aria-label', t('tool.reset'));
   dom.settingsBtn.setAttribute('aria-label', t('tool.settings'));
   document.getElementById('toolbar')?.setAttribute('aria-label', t('toolbar.label'));
   dom.hint.textContent = t('hint');
